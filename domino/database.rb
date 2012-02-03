@@ -1,5 +1,5 @@
 module Domino
-	class Database
+	class Database < Base
 		def initialize(handle)
 			@handle = handle
 		end
@@ -7,7 +7,7 @@ module Domino
 		def title
 			if @dbinfo == nil
 				dbinfo = FFI::MemoryPointer.from_string(" " * 128)
-				result = API.db_info(@handle, dbinfo)
+				result = API.NSFDbInfoGet(@handle, dbinfo)
 				if result != 0
 					raise NotesException.new(result)
 				end
@@ -25,14 +25,16 @@ module Domino
 			fetch_filepath if @server == nil
 			@server
 		end
-		
+
+		# TODO: fix the segfault this causes
+=begin
 		def get_user_info(username)
 			names_list_handle = FFI::MemoryPointer.new(:int)
-			result = API.build_names_list(username, 0, names_list_handle)
+			result = API.NSFNamesList(username, 0, names_list_handle)
 			if result == 0
-				API.lock_object names_list_handle.read_int
+				API.OSLockObject names_list_handle.read_int
 				# now get the info from the ACL, if that's how it works
-				result = API.get_names_list(@handle, 0, names_list_handle)
+				result = API.NSFDbGetNamesList(@handle, 0, names_list_handle)
 				if result == 0
 					# fetched names list
 					API::NameInfo.new(names_list_handle.read_int)
@@ -44,13 +46,14 @@ module Domino
 				raise NotesException.raise(result)
 			end
 		end
+=end
     
 		def get_view(viewname)
 			view_noteid = FFI::MemoryPointer.new(:int)
 			result = API.find_view(@handle, viewname.to_s, view_noteid)
 			if result == 0
 				handle = FFI::MemoryPointer.new(:int)
-				result = API.open_collection(@handle, @handle, view_noteid.read_int, 0, 0, handle, nil, nil, nil, nil)
+				result = API.NIFOpenCollection(@handle, @handle, view_noteid.read_int, 0, 0, handle, nil, nil, nil, nil)
 				if result != 0
 					raise NotesException.new(result)
 				end
@@ -61,16 +64,16 @@ module Domino
 		end
 		def get_view_as_user(viewname, username)
 			names_list = FFI::MemoryPointer.new(:int, API::NAMES_LIST.size + 100)
-			result = API.build_names_list(nil, 0, names_list)
+			result = API.NSFBuildNamesList(nil, 0, names_list)
 			if result == 0
-				names_list_obj = API::NAMES_LIST.new(API::lock_object(names_list.read_int))
+				names_list_obj = API::NAMES_LIST.new(API.OSLockObject(names_list.read_int))
 				names_list_obj[:authenticated] = 0
-				API::unlock_object(names_list.read_int)
+				API.OSUnlockObject(names_list.read_int)
 				view_noteid = FFI::MemoryPointer.new(:int)
 				result = API.find_view(@handle, viewname.to_s, view_noteid)
 				if result == 0
 					handle = FFI::MemoryPointer.new(:int)
-					result = API.open_collection_with_user_name_list(@handle, @handle, view_noteid.read_int, 0, 0, handle, nil, nil, nil, nil, names_list.read_int)
+					result = API.NIFOpenCollectionWithUserNameList(@handle, @handle, view_noteid.read_int, 0, 0, handle, nil, nil, nil, nil, names_list.read_int)
 					if result != 0
 						raise NotesException.new(result)
 					end
@@ -85,7 +88,7 @@ module Domino
 		end
 		
 		def close
-			API.db_close(@handle)
+			API.NSFDbClose(@handle)
 		end
 		
 		private
