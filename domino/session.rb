@@ -75,6 +75,23 @@ module Domino
 				"#{server}!!#{path}"
 			end
 		end
+		
+		
+		private
+		def string_array_to_inoutptr(ary)
+			ptrs = ary.map { |a| FFI::MemoryPointer.from_string(a) }
+			block = FFI::MemoryPointer.new(:pointer, ptrs.length)
+			block.write_array_of_pointer ptrs
+			#argv = FFI::MemoryPointer.new(:pointer)
+			#argv.write_pointer block
+			#argv
+			block
+		end
+		def int_to_inoutptr(val)
+			ptr = FFI::MemoryPointer.new(:int)
+			ptr.write_int val
+			ptr
+		end
 	end
   
 end

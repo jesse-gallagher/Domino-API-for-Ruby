@@ -5,41 +5,31 @@ require "#{File.dirname(__FILE__)}/domino/base"
 require "#{File.dirname(__FILE__)}/domino/api"
 require "#{File.dirname(__FILE__)}/domino/session"
 require "#{File.dirname(__FILE__)}/domino/database"
+require "#{File.dirname(__FILE__)}/domino/viewentry"
+require "#{File.dirname(__FILE__)}/domino/viewentrycollection"
 require "#{File.dirname(__FILE__)}/domino/view"
 
-NotesErrors = {
-	273 => "Unable to access files directory",
-	421 => "The NOTES.INI file cannot be found on the search path (PATH)",
-	582 => "You are not authorized to perform that operation",
-	781 => "You are not authorized to access the view",
-	1543 => "Encountered zero length record.",
-	2055 => "The server is not responding. The server may be down or you may be experiencing network problems. Contact your system administrator if this problem persists."
-}
-
 module Domino
+	NotesErrors = {
+		273 => "Unable to access files directory",
+		421 => "The NOTES.INI file cannot be found on the search path (PATH)",
+		582 => "You are not authorized to perform that operation",
+		781 => "You are not authorized to access the view",
+		813 => "Collation number specified negative or greater than number of collations in view.",
+		1543 => "Encountered zero length record.",
+		2055 => "The server is not responding. The server may be down or you may be experiencing network problems. Contact your system administrator if this problem persists."
+	}
+	
 	class NotesException < Exception
-		def initialize(error)
-			@error_code = error
+		def initialize(status)
+			@error_code = status & API::ERR_MASK
 		end
 		def message
 			API.error_string(@error_code)
+			#puts @error_code
+			#mess = FFI::MemoryPointer.new(512)
+			#size = API.OSLoadString(API::NULLHANDLE, @error_code, mess, 512-1)
+			#mess.read_bytes(size)
 		end
 	end
-end
-
-
-
-def string_array_to_inoutptr(ary)
-	ptrs = ary.map { |a| FFI::MemoryPointer.from_string(a) }
-	block = FFI::MemoryPointer.new(:pointer, ptrs.length)
-	block.write_array_of_pointer ptrs
-	#argv = FFI::MemoryPointer.new(:pointer)
-	#argv.write_pointer block
-	#argv
-	block
-end
-def int_to_inoutptr(val)
-	ptr = FFI::MemoryPointer.new(:int)
-	ptr.write_int val
-	ptr
 end

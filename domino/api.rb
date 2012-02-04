@@ -9,28 +9,33 @@ module Domino
 		NAMES_LIST_AUTHENTICATED = 0x0001
 		NAMES_LIST_PASSWORD_AUTHENTICATED = 0x0002
 		NAMES_LIST_FULL_ADMIN_ACCESS = 0x0004
+		ERR_MASK = 0x3fff
 		
 		# define the type names Domino uses for its API calls
-		typedef :uint, :dhandle
-		typedef :uint, :dword
-		typedef :uint16, :word
-		typedef :long, :hmodule
-		typedef :uint16, :status
-		typedef :uint, :dbhandle
-		typedef :uint, :noteid
-		typedef :uint16, :hcollection
+		typedef :uint, :DHANDLE
+		typedef :uint32, :DWORD
+		typedef :uint16, :WORD
+		typedef :long, :HMODULE
+		typedef :uint16, :STATUS
+		typedef :uint, :DBHANDLE
+		typedef :uint32, :NOTEID
+		typedef :uint16, :HCOLLECTION
+		typedef :uint16, :USHORT
+		typedef :uint8, :BYTE
+		typedef :uint32, :BOOL
+		typedef :uint64, :DBID
 		
 		# general and memory functions
-		attach_function "OSLockObject", [:dhandle], :pointer
-		attach_function "OSUnlockObject", [:dhandle], :bool
-		attach_function "OSMemFree", [:dhandle], :status
+		attach_function "OSLockObject", [:DHANDLE], :pointer
+		attach_function "OSUnlockObject", [:DHANDLE], :bool
+		attach_function "OSMemFree", [:DHANDLE], :STATUS
 		
-		attach_function "NSFBuildNamesList", [:string, :dword, :pointer], :status
-		attach_function "SECKFMUserInfo", [:word, :pointer, :pointer], :status
+		attach_function "NSFBuildNamesList", [:string, :DWORD, :pointer], :STATUS
+		attach_function "SECKFMUserInfo", [:WORD, :pointer, :pointer], :STATUS
 
 		# session management functions
-		attach_function "NotesInitExtended", [:int, :pointer], :status
-		attach_function "NotesInitIni", [:string], :status
+		attach_function "NotesInitExtended", [:int, :pointer], :STATUS
+		attach_function "NotesInitIni", [:string], :STATUS
 		attach_function "NotesTerm", [], :void
 
 		def self.err(error)
@@ -41,28 +46,38 @@ module Domino
 		end
 		
 		# utility functions
-		attach_function "OSLoadString", [:hmodule, :status, :pointer, :word], :word
-		attach_function "OSPathNetConstruct", [:string, :string, :string, :pointer], :status
+		attach_function "OSLoadString", [:HMODULE, :STATUS, :pointer, :WORD], :WORD
+		attach_function "OSPathNetConstruct", [:string, :string, :string, :pointer], :WORD
+		attach_function "TimeGMToLocal", [:pointer], :BOOL
 
 		# server management functions
-		attach_function "NSPingServer", [:string, :pointer, :pointer], :status
+		attach_function "NSPingServer", [:string, :pointer, :pointer], :STATUS
 
 		# database functions
 		MAXPATH = 256
 		NOTE_CLASS_VIEW = 0x0008
 		DFLAGPAT_VIEWS_AND_FOLDERS = "-G40n^"
-		attach_function "NSFDbOpen", [:string, :pointer], :status
-		attach_function "NSFDbOpenExtended", [:string, :word, :dhandle, :pointer, :pointer, :pointer, :pointer], :status
-		attach_function "NSFDbClose", [:dbhandle], :void
-		attach_function "NSFDbInfoGet", [:dbhandle, :pointer], :status
-		attach_function "NSFDbPathGet", [:dbhandle, :pointer, :pointer], :status
-		attach_function "NIFFindDesignNoteExt", [:dbhandle, :string, :word, :string, :pointer, :dword], :status
-		attach_function "NSFDbGetNamesList", [:dbhandle, :dword, :pointer], :status
+		attach_function "NSFDbOpen", [:string, :pointer], :STATUS
+		attach_function "NSFDbOpenExtended", [:string, :WORD, :DHANDLE, :pointer, :pointer, :pointer, :pointer], :STATUS
+		attach_function "NSFDbClose", [:DBHANDLE], :void
+		attach_function "NSFDbInfoGet", [:DBHANDLE, :pointer], :STATUS
+		attach_function "NSFDbPathGet", [:DBHANDLE, :pointer, :pointer], :STATUS
+		attach_function "NIFFindDesignNoteExt", [:DBHANDLE, :string, :WORD, :string, :pointer, :DWORD], :STATUS
+		attach_function "NSFDbGetNamesList", [:DBHANDLE, :DWORD, :pointer], :STATUS
     
 		# view/folder functions
 		MAXTUMBLERLEVELS = 32
 		MAXTUMBLERLEVELS_V2 = 8
 		NOTEID_CATEGORY = 0x80000000
+		COLLATION_SIGNATURE = 0x44
+		PERCENTILE_COUNT = 11
+		
+		# view open flags
+		OPEN_REBUILD_INDEX = 0x0001
+		OPEN_NOUPDATE = 0x0002
+		OPEN_DO_NOT_CREATE = 0x0004
+		OPEN_SHARED_VIEW_NOTE = 0x0010
+		OPEN_REOPEN_COLLECTION = 0x0020
 		
 		# view read masks
 		READ_MASK_NOTEID = 			0x00000001
@@ -103,10 +118,14 @@ module Domino
 			#define NIFFindView(hFile,Name,retNoteID) 			  NIFFindDesignNoteExt(hFile,Name,NOTE_CLASS_VIEW, DFLAGPAT_VIEWS_AND_FOLDERS, retNoteID, 0)
 			API.NIFFindDesignNoteExt(hFile, name, NOTE_CLASS_VIEW, DFLAGPAT_VIEWS_AND_FOLDERS, retNoteID, 0)
 		end
-		attach_function "NIFOpenCollection", [:dbhandle, :dbhandle, :noteid, :word, :dhandle, :pointer, :pointer, :pointer, :pointer, :pointer], :status
-		attach_function "NIFOpenCollectionWithUserNameList", [:dbhandle, :dbhandle, :noteid, :word, :dhandle, :pointer, :pointer, :pointer, :pointer, :pointer, :dhandle], :status
-		attach_function "NIFCloseCollection", [:hcollection], :status
-		attach_function "NIFReadEntries", [:hcollection, :pointer, :word, :dword, :word, :dword, :dword, :pointer, :pointer, :pointer, :pointer, :pointer], :status
+		attach_function "NIFOpenCollection", [:DBHANDLE, :DBHANDLE, :NOTEID, :WORD, :DHANDLE, :pointer, :pointer, :pointer, :pointer, :pointer], :STATUS
+		attach_function "NIFOpenCollectionWithUserNameList", [:DBHANDLE, :DBHANDLE, :NOTEID, :WORD, :DHANDLE, :pointer, :pointer, :pointer, :pointer, :pointer, :DHANDLE], :STATUS
+		attach_function "NIFCloseCollection", [:HCOLLECTION], :STATUS
+		attach_function "NIFReadEntries", [:HCOLLECTION, :pointer, :WORD, :DWORD, :WORD, :DWORD, :DWORD, :pointer, :pointer, :pointer, :pointer, :pointer], :STATUS
+		attach_function "NIFGetCollation", [:HCOLLECTION, :pointer], :STATUS
+		attach_function "NIFSetCollation", [:HCOLLECTION, :WORD], :STATUS
+		attach_function "NIFGetCollectionData", [:HCOLLECTION, :pointer], :STATUS
+		attach_function "NIFUpdateCollection", [:HCOLLECTION], :STATUS
 		
 		# item types, along with the CLASS_xxx constants they're based on
 		CLASS_ERROR = (1 << 8)
@@ -158,23 +177,109 @@ module Domino
 		
 	
 		class COLLECTIONPOSITION < FFI::Struct
-			layout :level, :int,
-				:min_level, :short,
-				:max_level, :short,
-				:tumbler, [:int, MAXTUMBLERLEVELS]
+			layout :Level, :WORD,
+				:MinLevel, :BYTE,
+				:MaxLevel, :BYTE,
+				:Tumbler, [:DWORD, MAXTUMBLERLEVELS]
 		end
 		class ITEM_VALUE_TABLE < FFI::Struct
-			layout :length, :uint16,
-				:items, :uint16
+			layout :Length, :USHORT,
+				:Items, :USHORT
 			# This is followed by :items WORD values, which are the lengths of the data items
 			# Then are the data items, each of which starts with a data type, which is a USHORT
 		end
+		class LICENSED < FFI::Struct
+			layout :ID, [:BYTE, 5],
+				:Product, :BYTE,
+				:Check, [:BYTE, 2]
+		end
 		class NAMES_LIST < FFI::Struct
-			layout :num_names, :uint16,
+			layout :num_names, :WORD,
 				:licenseid, :uint64,
 				:authenticated, :int32
 			# This is followed by :num_names packed strings
 		end
+		class LIST < FFI::Struct
+			layout :ListEntries, :USHORT
+			# This is followed by the list entries
+		end
+		class RANGE < FFI::Struct
+			layout :ListEntries, :USHORT,
+				:RangeEntries, :USHORT
+		end
+		class TIMEDATE < FFI::Struct
+			# This isn't meant to be used by humans, hence the super-useful field name
+			layout :Innards, [:DWORD, 2]
+		end
+		class TIMEDATE_PAIR < FFI::Struct
+			layout :Lower, TIMEDATE,
+				:Upper, TIMEDATE
+			
+			def to_r
+				Range.new(API.timedate_to_time(self[:Lower]).to_t, API.timedate_to_time(self[:Upper]).to_t)
+			end
+			def to_s
+				self.to_r.to_s
+			end
+		end
+		class TIME < FFI::Struct
+			layout :year, :int,
+				:month, :int,
+				:day, :int,
+				:weekday, :int,
+				:hour, :int,
+				:minute, :int,
+				:second, :int,
+				:hundredth, :int,
+				:dst, :int,
+				:zone, :int,
+				:GM, :uint64
+			# GM is actually a TIMEDATE structure
+			def to_t
+				Time.utc(self[:year], self[:month], self[:day], self[:hour], self[:minute], self[:second])
+			end
+			def to_s
+				self.to_t.to_s
+			end
+		end
+		class COLLATION < FFI::Struct
+			layout :BufferSize, :USHORT,
+				:Items, :USHORT,
+				:Flags, :BYTE,
+				:signature, :BYTE
+			# This is followed by :Items COLLATE_DESCRIPTOR objects, then by a string filling the rest of :BufferSize
+		end
+		class COLLATE_DESCRIPTOR < FFI::Struct
+			layout :Flags, :BYTE,
+				:signature, :BYTE,
+				:keytype, :BYTE,
+				:NameOffset, :WORD,
+				:NameLength, :WORD
+		end
+		class COLLECTIONDATA < FFI::Struct
+			layout :DocCount, :DWORD,
+				:DocTotalSize, :DWORD,
+				:BTreeLeafNodes, :DWORD,
+				:BTreeDepth, :WORD,
+				:Spare, :WORD,
+				:KeyOffset, [:DWORD, PERCENTILE_COUNT]
+		end
+		class COLLECTIONSTATS < FFI::Struct
+			layout :TopLevelEntries, :DWORD,
+				:LastModifiedTime, :DWORD
+		end
+		class UNIVERSALNOTEID < FFI::Struct
+			layout :File, :uint64,
+				:Note, :uint64
+				
+			def to_i
+				(self[:File] << 64) + self[:Note]
+			end
+			def to_s
+				"%032X" % self.to_i
+			end
+		end
+		
 		class NameInfo
 			attr_reader :num_names, :licenseid, :authenticated, :names
 			
@@ -200,6 +305,87 @@ module Domino
 					@names << string
 				end
 			end
+		end
+		class TimeRange
+			attr_reader :timedates, :ranges
+			def initialize(timedates, ranges)
+				@timedates = timedates
+				@ranges = ranges
+			end
+			def to_s
+				{
+					:times => @timedates.map { |timedate| API.timedate_to_time(timedate) },
+					:ranges => @ranges
+				}.to_s
+			end
+		end
+		
+		def self.read_text_list(ptr)
+			# Read the LIST struct first, which just contains the entry count
+			list = LIST.new(ptr)
+			ptr += LIST.size
+			# Read the array of USHORT length values
+			lengths = ptr.read_array_of_type(:uint16, :read_uint16, list[:ListEntries])
+			ptr += 2 * list[:ListEntries]
+			# Read each packed string
+			lengths.map do |length|
+				string = ptr.read_bytes(length)
+				ptr += length
+				string
+			end
+		end
+		def self.read_number_range(ptr)
+			# Number "ranges" are actually just lists - real number ranges aren't actually supported in Domino
+			# Nonetheless, it uses the RANGE struct type... just in case, I guess
+			range = RANGE.new(ptr)
+			ptr += RANGE.size
+			ptr.read_array_of_type(:double, :read_double, range[:ListEntries])
+		end
+		def self.read_time(ptr)
+			self.timedate_to_time(TIMEDATE.new(ptr))
+		end
+		def self.timedate_to_time(timedate)
+			time = TIME.new
+			time[:GM] = timedate.to_ptr.read_uint64
+			TimeGMToLocal(time.to_ptr)
+			time
+		end
+		def self.read_time_range(ptr)
+			range = RANGE.new(ptr)
+			ptr += RANGE.size
+			timedates = []
+			0.upto(range[:ListEntries]-1) do |i|
+				timedate_ptr = ptr + (i * TIMEDATE.size)
+				timedates << TIMEDATE.new(timedate_ptr)
+			end
+			ranges = []
+			0.upto(range[:RangeEntries]-1) do |i|
+				pair_ptr = ptr + (range[:ListEntries] * TIMEDATE.size) + (i * TIMEDATE_PAIR.size)
+				ranges << TIMEDATE_PAIR.new(pair_ptr)
+			end
+			TimeRange.new(timedates, ranges)
+		end
+		def self.read_truncated_collectionposition(ptr)
+			coll_ptr = ptr + 0
+			# The collection is truncated such that the Tumbler array is of size :Level + 1
+			coll = COLLECTIONPOSITION.new
+			
+			# read the levels
+			coll[:Level] = coll_ptr.read_uint16
+			coll_ptr += 2
+			coll[:MinLevel] = coll_ptr.read_uint8
+			coll_ptr += 1
+			coll[:MaxLevel] = coll_ptr.read_uint8
+			coll_ptr += 1
+			0.upto(coll[:Level]) do |i|
+				coll[:Tumbler][i] = coll_ptr.read_uint16
+				coll_ptr += 2
+			end
+			coll
+		end
+		def self.read_truncated_collectionposition_size(ptr)
+			#define COLLECTIONPOSITIONSIZE(p) (sizeof(DWORD) * ((p)->Level+2))
+			4 * (ptr.read_uint16+2)
 		end
 	end
 end

@@ -53,11 +53,11 @@ module Domino
 			result = API.find_view(@handle, viewname.to_s, view_noteid)
 			if result == 0
 				handle = FFI::MemoryPointer.new(:int)
-				result = API.NIFOpenCollection(@handle, @handle, view_noteid.read_int, 0, 0, handle, nil, nil, nil, nil)
+				result = API.NIFOpenCollection(@handle, @handle, view_noteid.read_int, 0, API::NULLHANDLE, handle, nil, nil, nil, nil)
 				if result != 0
 					raise NotesException.new(result)
 				end
-				View.new(handle.read_int)
+				View.new(handle.read_int, view_noteid.read_int)
 			else
 				raise NotesException.new(result)
 			end
@@ -73,7 +73,7 @@ module Domino
 				result = API.find_view(@handle, viewname.to_s, view_noteid)
 				if result == 0
 					handle = FFI::MemoryPointer.new(:int)
-					result = API.NIFOpenCollectionWithUserNameList(@handle, @handle, view_noteid.read_int, 0, 0, handle, nil, nil, nil, nil, names_list.read_int)
+					result = API.NIFOpenCollectionWithUserNameList(@handle, @handle, view_noteid.read_int, 0, API::NULLHANDLE, handle, nil, nil, nil, nil, names_list.read_int)
 					if result != 0
 						raise NotesException.new(result)
 					end
