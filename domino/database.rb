@@ -1,5 +1,7 @@
 module Domino
 	class Database < Base
+		attr_reader :handle
+		
 		def initialize(handle)
 			@handle = handle
 		end
@@ -57,7 +59,7 @@ module Domino
 				if result != 0
 					raise NotesException.new(result)
 				end
-				View.new(handle.read_int, view_noteid.read_int)
+				View.new(self, handle.read_int, view_noteid.read_int)
 			else
 				raise NotesException.new(result)
 			end
@@ -77,7 +79,7 @@ module Domino
 					if result != 0
 						raise NotesException.new(result)
 					end
-					View.new(handle.read_int)
+					View.new(self, handle.read_int)
 				else
 					raise NotesException.new(result)
 				end

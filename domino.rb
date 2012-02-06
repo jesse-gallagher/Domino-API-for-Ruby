@@ -20,16 +20,37 @@ module Domino
 		2055 => "The server is not responding. The server may be down or you may be experiencing network problems. Contact your system administrator if this problem persists."
 	}
 	
+	module LibC
+		extend FFI::Library
+		ffi_lib FFI::Library::LIBC
+		
+		attach_function :malloc, [:size_t], :pointer
+		attach_function :free, [:pointer], :void
+		
+		attach_function :memcpy, [:pointer, :pointer, :size_t], :pointer
+	end
+	
 	class NotesException < Exception
 		def initialize(status)
 			@error_code = status & API::ERR_MASK
 		end
 		def message
-			API.error_string(@error_code)
+			return API.error_string(@error_code)
 			#puts @error_code
-			#mess = FFI::MemoryPointer.new(512)
-			#size = API.OSLoadString(API::NULLHANDLE, @error_code, mess, 512-1)
-			#mess.read_bytes(size)
+			begin
+				#ruby_buffer = FFI::MemoryPointer.new(256).write_string("\0" * 256)
+				buffer = LibC.malloc 256
+				buffer.write_array_of_type(:uint8, :write_uint8, [0] * 256)
+				size = API.OSLoadString(API::NULLHANDLE, 3847, buffer, 255)
+				#buff = FFI::MemoryPointer.from_string(" " * 256)
+				#size = API.OSLoadString(API::NULLHANDLE, @error_code, buff.read_pointer, 255)
+				mess = buffer.read_bytes(size)
+				LibC.free buffer
+				puts "Excep: #{mess}"
+			rescue Exception => e
+				puts "Couldn't read message: #{e}"
+			end
+			API.error_string(@error_code)
 		end
 	end
 end

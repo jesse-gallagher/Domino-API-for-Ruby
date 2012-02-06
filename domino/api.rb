@@ -29,6 +29,8 @@ module Domino
 		attach_function "OSLockObject", [:DHANDLE], :pointer
 		attach_function "OSUnlockObject", [:DHANDLE], :bool
 		attach_function "OSMemFree", [:DHANDLE], :STATUS
+		attach_function "OSLoadString", [:HMODULE, :STATUS, :pointer, :WORD], :WORD
+		attach_function "OSPathNetConstruct", [:string, :string, :string, :pointer], :WORD
 		
 		attach_function "NSFBuildNamesList", [:string, :DWORD, :pointer], :STATUS
 		attach_function "SECKFMUserInfo", [:WORD, :pointer, :pointer], :STATUS
@@ -46,8 +48,6 @@ module Domino
 		end
 		
 		# utility functions
-		attach_function "OSLoadString", [:HMODULE, :STATUS, :pointer, :WORD], :WORD
-		attach_function "OSPathNetConstruct", [:string, :string, :string, :pointer], :WORD
 		attach_function "TimeGMToLocal", [:pointer], :BOOL
 
 		# server management functions
@@ -104,6 +104,7 @@ module Domino
 		NAVIGATE_LAST_PEER = 8
 		NAVIGATE_CURRENT_MAIN = 11
 		NAVIGATE_ALL_DESCENDANTS = 17
+		NAVIGATE_NEXT_HIT = 29
 		NAVIGATE_CURRENT_HIT = 31
 		NAVIGATE_MASK =			0x007F
 		NAVIGATE_MINLEVEL =		0x0100
@@ -126,6 +127,28 @@ module Domino
 		attach_function "NIFSetCollation", [:HCOLLECTION, :WORD], :STATUS
 		attach_function "NIFGetCollectionData", [:HCOLLECTION, :pointer], :STATUS
 		attach_function "NIFUpdateCollection", [:HCOLLECTION], :STATUS
+		
+		# Full-text search stuff
+		FT_SEARCH_SET_COLL = 0x00000001
+		FT_SEARCH_RET_IDTABLE = 0x00000010
+		FT_SEARCH_NUMDOCS_ONLY = 0x00000002
+		FT_SEARCH_REFINE = 0x00000004
+		FT_SEARCH_SCORES = 0x00000008
+		FT_SEARCH_SORT_DATE = 0x00000020
+		FT_SEARCH_SORT_ASCEND = 0x00000040
+		FT_SEARCH_TOP_SCORES = 0x00000080
+		FT_SEARCH_STEM_WORDS = 0x00000200
+		FT_SEARCH_THESAURUS_WORDS = 0x00000400
+		FT_SEARCH_FUZZY = 0x00004000
+		FT_SEARCH_EXT_RET_URL = 0x00008000
+		FT_SEARCH_SORT_DATE_CREATED = 0x00010000
+		FT_SEARCH_EXT_DOMAIN = 0x00040000
+		FT_SEARCH_EXT_FILESYSTEM = 0x00100000
+		FT_SEARCH_EXT_DATABASE = 0x00200000
+		
+		attach_function "FTSearch", [:DBHANDLE, :pointer, :HCOLLECTION, :string, :DWORD, :WORD, :DHANDLE, :pointer, :pointer, :pointer], :STATUS
+		attach_function "FTOpenSearch", [:pointer], :STATUS
+		attach_function "FTCloseSearch", [:DHANDLE], :STATUS
 		
 		# item types, along with the CLASS_xxx constants they're based on
 		CLASS_ERROR = (1 << 8)
