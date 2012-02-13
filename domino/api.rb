@@ -1,7 +1,8 @@
 module Domino
 	module API
 		extend FFI::Library
-		ffi_lib "libnotes"
+		#ffi_lib "libnotes"
+		ffi_lib "/opt/ibm/lotus/notes/85030/linux/libnotes.so"
 	
 		# some handy global constants
 		NULLHANDLE = 0
@@ -12,60 +13,33 @@ module Domino
 		ERR_MASK = 0x3fff
 		
 		# define the type names Domino uses for its API calls
-		typedef :uint, :DHANDLE
+		typedef :uint32, :DHANDLE
 		typedef :uint32, :DWORD
 		typedef :uint16, :WORD
-		typedef :long, :HMODULE
-		typedef :uint16, :STATUS
-		typedef :uint, :DBHANDLE
-		typedef :uint32, :NOTEID
-		typedef :uint16, :HCOLLECTION
+		typedef :uint32, :HANDLE
+		typedef :HANDLE, :WHANDLE
+		typedef :WHANDLE, :HMODULE
+		typedef :WORD, :STATUS
+		typedef :HANDLE, :DBHANDLE
+		typedef :DWORD, :NOTEID
+		typedef :WORD, :HCOLLECTION
 		typedef :uint16, :USHORT
 		typedef :uint8, :BYTE
 		typedef :uint32, :BOOL
 		typedef :uint64, :DBID
+		typedef :DHANDLE, :NOTEHANDLE
+		typedef :uint64, :TIMEDATE_S	# for use in structures that don't care about the TIMEDATE value (like UNIVERSALNOTEID)
+		typedef :WORD, :BLOCK
+		typedef :double, :NUMBER
+		typedef :DWORD, :HMIMEDIRECTORY
+		typedef :pointer, :PMIMEENTITY
+		typedef :int, :MIMESYMBOL
+		typedef :pointer, :CCHANDLE
 		
-		# general and memory functions
-		attach_function "OSLockObject", [:DHANDLE], :pointer
-		attach_function "OSUnlockObject", [:DHANDLE], :bool
-		attach_function "OSMemFree", [:DHANDLE], :STATUS
-		attach_function "OSLoadString", [:HMODULE, :STATUS, :pointer, :WORD], :WORD
-		attach_function "OSPathNetConstruct", [:string, :string, :string, :pointer], :WORD
 		
-		attach_function "NSFBuildNamesList", [:string, :DWORD, :pointer], :STATUS
-		attach_function "SECKFMUserInfo", [:WORD, :pointer, :pointer], :STATUS
-
-		# session management functions
-		attach_function "NotesInitExtended", [:int, :pointer], :STATUS
-		attach_function "NotesInitIni", [:string], :STATUS
-		attach_function "NotesTerm", [], :void
-
-		def self.err(error)
-			error & 0x3fff
-		end
-		def self.error_string(error)
-			NotesErrors[error] ? "#{NotesErrors[error]} (#{error})" : error.to_s
-		end
-		
-		# utility functions
-		attach_function "TimeGMToLocal", [:pointer], :BOOL
-
-		# server management functions
-		attach_function "NSPingServer", [:string, :pointer, :pointer], :STATUS
-
-		# database functions
 		MAXPATH = 256
-		NOTE_CLASS_VIEW = 0x0008
 		DFLAGPAT_VIEWS_AND_FOLDERS = "-G40n^"
-		attach_function "NSFDbOpen", [:string, :pointer], :STATUS
-		attach_function "NSFDbOpenExtended", [:string, :WORD, :DHANDLE, :pointer, :pointer, :pointer, :pointer], :STATUS
-		attach_function "NSFDbClose", [:DBHANDLE], :void
-		attach_function "NSFDbInfoGet", [:DBHANDLE, :pointer], :STATUS
-		attach_function "NSFDbPathGet", [:DBHANDLE, :pointer, :pointer], :STATUS
-		attach_function "NIFFindDesignNoteExt", [:DBHANDLE, :string, :WORD, :string, :pointer, :DWORD], :STATUS
-		attach_function "NSFDbGetNamesList", [:DBHANDLE, :DWORD, :pointer], :STATUS
     
-		# view/folder functions
 		MAXTUMBLERLEVELS = 32
 		MAXTUMBLERLEVELS_V2 = 8
 		NOTEID_CATEGORY = 0x80000000
@@ -114,20 +88,6 @@ module Domino
 		# view signals
 		SIGNAL_MORE_TO_DO = 0x0020
 		
-		def self.find_view(hFile, name, retNoteID)
-			# this is a macro in the API
-			#define NIFFindView(hFile,Name,retNoteID) 			  NIFFindDesignNoteExt(hFile,Name,NOTE_CLASS_VIEW, DFLAGPAT_VIEWS_AND_FOLDERS, retNoteID, 0)
-			API.NIFFindDesignNoteExt(hFile, name, NOTE_CLASS_VIEW, DFLAGPAT_VIEWS_AND_FOLDERS, retNoteID, 0)
-		end
-		attach_function "NIFOpenCollection", [:DBHANDLE, :DBHANDLE, :NOTEID, :WORD, :DHANDLE, :pointer, :pointer, :pointer, :pointer, :pointer], :STATUS
-		attach_function "NIFOpenCollectionWithUserNameList", [:DBHANDLE, :DBHANDLE, :NOTEID, :WORD, :DHANDLE, :pointer, :pointer, :pointer, :pointer, :pointer, :DHANDLE], :STATUS
-		attach_function "NIFCloseCollection", [:HCOLLECTION], :STATUS
-		attach_function "NIFReadEntries", [:HCOLLECTION, :pointer, :WORD, :DWORD, :WORD, :DWORD, :DWORD, :pointer, :pointer, :pointer, :pointer, :pointer], :STATUS
-		attach_function "NIFGetCollation", [:HCOLLECTION, :pointer], :STATUS
-		attach_function "NIFSetCollation", [:HCOLLECTION, :WORD], :STATUS
-		attach_function "NIFGetCollectionData", [:HCOLLECTION, :pointer], :STATUS
-		attach_function "NIFUpdateCollection", [:HCOLLECTION], :STATUS
-		
 		# Full-text search stuff
 		FT_SEARCH_SET_COLL = 0x00000001
 		FT_SEARCH_RET_IDTABLE = 0x00000010
@@ -146,9 +106,66 @@ module Domino
 		FT_SEARCH_EXT_FILESYSTEM = 0x00100000
 		FT_SEARCH_EXT_DATABASE = 0x00200000
 		
-		attach_function "FTSearch", [:DBHANDLE, :pointer, :HCOLLECTION, :string, :DWORD, :WORD, :DHANDLE, :pointer, :pointer, :pointer], :STATUS
-		attach_function "FTOpenSearch", [:pointer], :STATUS
-		attach_function "FTCloseSearch", [:DHANDLE], :STATUS
+		# Documnt/note access
+		OPEN_SUMMARY = 0x0001
+		OPEN_NOVERIFYDEFAULT = 0x0002
+		OPEN_EXPAND = 0x0004
+		OPEN_NOOBJECTS = 0x0008
+		OPEN_SHARE = 0x0020
+		OPEN_CANONICAL = 0x0040
+		OPEN_MARK_READ = 0x0100
+		OPEN_ABSTRACT = 0x0200
+		OPEN_RESPONSE_ID_TABLE = 0x1000
+		OPEN_WITH_FOLDERS = 0x00020000
+		OPEN_RAW_RFC822_TEXT = 0x01000000
+		OPEN_RAW_MIME_PART = 0x02000000
+		OPEN_RAW_MIME = 0x01000000 | 0x02000000
+		
+		# It appears that Ruby doesn't make handy class methods when it doesn't
+		# follow proper constant syntax, so these constants get an "F" at the start
+		F_NOTE_DB = 0
+		F_NOTE_ID = 1
+		F_NOTE_OID = 2
+		F_NOTE_CLASS = 3
+		F_NOTE_MODIFIED = 4
+		F_NOTE_PRIVILEGES = 5
+		F_NOTE_FLAGS = 7
+		F_NOTE_ACCESSED = 8
+		F_NOTE_PARENT_NOTEID = 10
+		F_NOTE_RESPONSE_COUNT = 11
+		F_NOTE_RESPONSES = 12
+		F_NOTE_ADDED_TO_FILE = 13
+		F_NOTE_OBJSTORE_DB = 14
+		
+		NOTE_CLASS_DOCUMENT = 0x0001
+		NOTE_CLASS_DATA = NOTE_CLASS_DOCUMENT
+		NOTE_CLASS_INFO = 0x0002
+		NOTE_CLASS_FORM = 0x0004
+		NOTE_CLASS_VIEW = 0x0008
+		NOTE_CLASS_ICON = 0x0010
+		NOTE_CLASS_DESIGN = 0x0020
+		NOTE_CLASS_ACL = 0x0040
+		NOTE_CLASS_HELP_INDEX = 0x0080
+		NOTE_CLASS_HELP = 0x0100
+		NOTE_CLASS_FILTER = 0x0200
+		NOTE_CLASS_FIELD = 0x0400
+		NOTE_CLASS_REPLFORMULA = 0x0800
+		NOTE_CLASS_PRIVATE = 0x1000
+		NOTE_CLASS_DEFAULT = 0x8000
+		NOTE_CLASS_NOTIFYDELETION = NOTE_CLASS_DEFAULT
+		NOTE_CLASS_ALL = 0x7fff
+		NOTE_CLASS_ALLNODATA = 0x7ffe
+		NOTE_CLASS_NONE = 0x000
+		NOTE_CLASS_SINGLE_INSTANCE = NOTE_CLASS_DESIGN | NOTE_CLASS_ACL | NOTE_CLASS_INFO | NOTE_CLASS_ICON | NOTE_CLASS_HELP_INDEX
+		
+		NOTE_ID_SPECIAL = 0xFFFF0000
+		
+		NOTE_FLAG_READONLY = 0x0001
+		NOTE_FLAG_ABSTRACTED = 0x0002
+		NOTE_FLAG_INCREMENTAL = 0x0004
+		NOTE_FLAG_LINKED = 0x0020
+		NOTE_FLAG_INCREMENTAL_FULL = 0x0040
+		NOTE_FLAG_CANONICAL = 0x4000
 		
 		# item types, along with the CLASS_xxx constants they're based on
 		CLASS_ERROR = (1 << 8)
@@ -198,6 +215,18 @@ module Domino
 		TYPE_CALENDAR_FORMAT = 24 + CLASS_NOCOMPUTE
 		TYPE_MIME_PART = 25 + CLASS_NOCOMPUTE
 		
+		# MIME part types
+		MIME_PART_PROLOG = 1
+		MIME_PART_BODY = 2
+		MIME_PART_EPILOG = 3
+		MIME_PART_RETRIEVE_INFO = 4
+		MIME_PART_MESSAGE = 5
+		
+		MIME_PART_HAS_BOUNDARY = 0x00000001
+		MIME_PART_HAS_HEADERS = 0x00000002
+		MIME_PART_BODY_IN_DBOBJECT = 0x00000004
+		MIME_PART_SHARED_DBOBJECT = 0x00000008
+		MIME_PART_SKIP_FOR_CONVERSION = 0x00000010
 	
 		class COLLECTIONPOSITION < FFI::Struct
 			layout :Level, :WORD,
@@ -210,6 +239,16 @@ module Domino
 				:Items, :USHORT
 			# This is followed by :items WORD values, which are the lengths of the data items
 			# Then are the data items, each of which starts with a data type, which is a USHORT
+		end
+		class ITEM_TABLE < FFI::Struct
+			layout :Length, :USHORT,
+				:Items, :USHORT
+			# This is followed by :Items ITEM objects, followed by packed pairs of the item name
+			# and item value. Each data value stores its type in the first USHORT
+		end
+		class ITEM < FFI::Struct
+			layout :NameLength, :USHORT,
+				:ValueLength, :USHORT
 		end
 		class LICENSED < FFI::Struct
 			layout :ID, [:BYTE, 5],
@@ -233,6 +272,13 @@ module Domino
 		class TIMEDATE < FFI::Struct
 			# This isn't meant to be used by humans, hence the super-useful field name
 			layout :Innards, [:DWORD, 2]
+			
+			def to_time
+				API.timedate_to_time(self)
+			end
+			def to_t
+				to_time.to_t
+			end
 		end
 		class TIMEDATE_PAIR < FFI::Struct
 			layout :Lower, TIMEDATE,
@@ -291,15 +337,157 @@ module Domino
 			layout :TopLevelEntries, :DWORD,
 				:LastModifiedTime, :DWORD
 		end
+		class BLOCKID < FFI::Struct
+			layout :pool, :DHANDLE,
+				:block, :BLOCK
+		end
 		class UNIVERSALNOTEID < FFI::Struct
-			layout :File, :uint64,
-				:Note, :uint64
+			layout :File, :DBID,
+				:Note, :TIMEDATE_S
 				
+			def self.from_s(unid)
+				unid = unid.to_s
+				file = unid[0..15].to_i(16)
+				note = unid[16..31].to_i(16)
+				
+				unid_struct = UNIVERSALNOTEID.new
+				unid_struct[:File] = file
+				unid_struct[:Note] = note
+				unid_struct
+			end
+			
 			def to_i
 				(self[:File] << 64) + self[:Note]
 			end
 			def to_s
 				"%032X" % self.to_i
+			end
+		end
+		class ORIGINATORID < FFI::Struct
+			layout :File, :DBID,
+				:Note, :TIMEDATE_S,
+				:Sequence, :DWORD,
+				:SequenceTime, :TIMEDATE_S
+		end
+		class MIME_PART < FFI::Struct
+			layout :Version, :WORD,
+				:Flags, :DWORD,
+				:PartType, :BYTE,
+				:Spare, :BYTE,
+				:ByteCount, :WORD,
+				:BoundaryLen, :WORD,
+				:HeadersLen, :WORD,
+				:Spare, :WORD,
+				:Spare, :DWORD
+		end
+		
+		
+		# Import methods
+		# general and memory functions
+		attach_function "OSLockObject", [:DHANDLE], :pointer
+		attach_function "OSUnlockObject", [:DHANDLE], :bool
+		attach_function "OSMemFree", [:DHANDLE], :STATUS
+		attach_function "OSLoadString", [:HMODULE, :STATUS, :pointer, :WORD], :WORD
+		attach_function "OSPathNetConstruct", [:string, :string, :string, :pointer], :WORD
+		
+		# Format functions
+		attach_function "ODSReadMemory", [:pointer, :WORD, :pointer, :WORD], :void
+		
+		attach_function "NSFBuildNamesList", [:string, :DWORD, :pointer], :STATUS
+		attach_function "SECKFMUserInfo", [:WORD, :pointer, :pointer], :STATUS
+
+		# session management functions
+		attach_function "NotesInitExtended", [:int, :pointer], :STATUS
+		attach_function "NotesInitIni", [:string], :STATUS
+		attach_function "NotesTerm", [], :void
+
+		def self.err(error)
+			error & 0x3fff
+		end
+		def self.error_string(error)
+			NotesErrors[error] ? "#{NotesErrors[error]} (#{error})" : error.to_s
+		end
+		
+		# utility functions
+		attach_function "TimeGMToLocal", [:pointer], :BOOL
+
+		# server management functions
+		attach_function "NSPingServer", [:string, :pointer, :pointer], :STATUS
+		
+		# database functions
+		attach_function "NSFDbOpen", [:string, :pointer], :STATUS
+		attach_function "NSFDbOpenExtended", [:string, :WORD, :DHANDLE, :pointer, :pointer, :pointer, :pointer], :STATUS
+		attach_function "NSFDbClose", [:DBHANDLE], :void
+		attach_function "NSFDbInfoGet", [:DBHANDLE, :pointer], :STATUS
+		attach_function "NSFDbPathGet", [:DBHANDLE, :pointer, :pointer], :STATUS
+		attach_function "NIFFindDesignNoteExt", [:DBHANDLE, :string, :WORD, :string, :pointer, :DWORD], :STATUS
+		attach_function "NSFDbGetNamesList", [:DBHANDLE, :DWORD, :pointer], :STATUS
+		
+		# view/folder functions
+		def self.find_view(hFile, name, retNoteID)
+			# this is a macro in the API
+			#define NIFFindView(hFile,Name,retNoteID) 			  NIFFindDesignNoteExt(hFile,Name,NOTE_CLASS_VIEW, DFLAGPAT_VIEWS_AND_FOLDERS, retNoteID, 0)
+			API.NIFFindDesignNoteExt(hFile, name, NOTE_CLASS_VIEW, DFLAGPAT_VIEWS_AND_FOLDERS, retNoteID, 0)
+		end
+		attach_function "NIFOpenCollection", [:DBHANDLE, :DBHANDLE, :NOTEID, :WORD, :DHANDLE, :pointer, :pointer, :pointer, :pointer, :pointer], :STATUS
+		attach_function "NIFOpenCollectionWithUserNameList", [:DBHANDLE, :DBHANDLE, :NOTEID, :WORD, :DHANDLE, :pointer, :pointer, :pointer, :pointer, :pointer, :DHANDLE], :STATUS
+		attach_function "NIFCloseCollection", [:HCOLLECTION], :STATUS
+		attach_function "NIFReadEntries", [:HCOLLECTION, :pointer, :WORD, :DWORD, :WORD, :DWORD, :DWORD, :pointer, :pointer, :pointer, :pointer, :pointer], :STATUS
+		attach_function "NIFGetCollation", [:HCOLLECTION, :pointer], :STATUS
+		attach_function "NIFSetCollation", [:HCOLLECTION, :WORD], :STATUS
+		attach_function "NIFGetCollectionData", [:HCOLLECTION, :pointer], :STATUS
+		attach_function "NIFUpdateCollection", [:HCOLLECTION], :STATUS
+		
+		# FT Search functions
+		attach_function "FTSearch", [:DBHANDLE, :pointer, :HCOLLECTION, :string, :DWORD, :WORD, :DHANDLE, :pointer, :pointer, :pointer], :STATUS
+		attach_function "FTOpenSearch", [:pointer], :STATUS
+		attach_function "FTCloseSearch", [:DHANDLE], :STATUS
+		
+		
+		# Note/document functions
+		attach_function "NSFNoteGetInfo", [:NOTEHANDLE, :WORD, :pointer], :void
+		attach_function "NSFNoteOpenExt", [:DBHANDLE, :NOTEID, :DWORD, :pointer], :STATUS
+		attach_function "NSFDbGetNoteInfo", [:DBHANDLE, :NOTEID, :pointer, :pointer, :pointer], :STATUS
+		attach_function "NSFDbGetNoteInfoByUNID", [:DBHANDLE, :pointer, :pointer, :pointer, :pointer, :pointer], :STATUS
+		attach_function "NSFNoteClose", [:NOTEHANDLE], :STATUS
+		attach_function "NSFDbGetMultNoteInfo", [:DBHANDLE, :WORD, :WORD, :DHANDLE, :pointer, :pointer], :STATUS
+		attach_function "NSFNoteHasMIME", [:NOTEHANDLE], :BOOL
+		
+		# Items
+		attach_function "NSFItemInfo", [:NOTEHANDLE, :string, :WORD, :pointer, :pointer, :pointer, :pointer], :STATUS
+		callback "NSFItemScanCallback", [:WORD, :WORD, :pointer, :WORD, :pointer, :DWORD, :pointer], :STATUS
+		attach_function "NSFItemScan", [:NOTEHANDLE, "NSFItemScanCallback", :pointer], :STATUS
+		
+		# Rich text and MIME
+		attach_function "ConvertItemToText", [BLOCKID.by_value, :DWORD, :string, :WORD, :pointer, :pointer, :BOOL], :STATUS
+		
+		attach_function "MIMEOpenDirectory", [:NOTEHANDLE, :pointer], :STATUS
+		attach_function "MIMEEntityIsMultiPart", [:PMIMEENTITY], :BOOL
+		attach_function "MIMEEntityIsMessagePart", [:PMIMEENTITY], :BOOL
+		attach_function "MIMEEntityIsDiscretePart", [:PMIMEENTITY], :BOOL
+		attach_function "MIMEEntityContentType", [:PMIMEENTITY], :MIMESYMBOL
+		attach_function "MIMEGetDecodedEntityData", [:DHANDLE, :PMIMEENTITY, :DWORD, :DWORD, :pointer, :pointer, :pointer], :STATUS
+		attach_function "MIMEEntityGetHeader", [:PMIMEENTITY, :MIMESYMBOL], :string
+		attach_function "MIMEConvertCDParts", [:NOTEHANDLE, :BOOL, :BOOL, :CCHANDLE], :STATUS
+		
+		attach_function "MMCreateConvControls", [:CCHANDLE], :STATUS
+		attach_function "MMDestroyConvControls", [:CCHANDLE], :STATUS
+		
+		# ID tables
+		attach_function "IDCreateTable", [:DWORD, :pointer], :STATUS
+		attach_function "IDInsert", [:DHANDLE, :NOTEID, :pointer], :STATUS
+		attach_function "IDDestroyTable", [:DHANDLE], :STATUS
+		
+		# A non-struct version that parses the info into useful parts
+		class OriginatorID
+			attr_reader :universalid, :sequence, :sequence_time
+			
+			def initialize(ptr)
+				@universalid = UNIVERSALNOTEID.new(ptr)
+				ptr += UNIVERSALNOTEID.size
+				@sequence = ptr.read_uint32
+				ptr += 4
+				@sequence_time = TIMEDATE.new(ptr)
 			end
 		end
 		
@@ -342,7 +530,75 @@ module Domino
 				}.to_s
 			end
 		end
+		class Item
+			attr_reader :name, :type, :value
+			
+			def initialize(name, type, value)
+				@name = name
+				@type = type
+				@value = value
+			end
+			
+			def to_s
+				{
+					:name => @name,
+					:type => @type,
+					:value => @value
+				}.to_s
+			end
+		end
+		class MimePart
+			attr_reader :version, :flags, :part_type
+			attr_reader :headers, :body
+			
+			def initialize(ptr, notehandle)
+				mime_info = MIME_PART.new(ptr)
+				
+				
+				@version = mime_info[:Version]
+				@flags = mime_info[:Flags]
+				@part_type = mime_info[:PartType]
+				
+				headers_ptr = ptr + 22
+				@headers = headers_ptr.read_bytes(mime_info[:HeadersLen]).split "\r\n"
+				
+				body_ptr = headers_ptr + mime_info[:HeadersLen]
+				@body = body_ptr.read_bytes(mime_info[:ByteCount] - mime_info[:HeadersLen])
+				
+			end
+			
+			def to_s
+				{
+					:headers => @headers,
+					:body => @body
+				}.to_s
+			end
+		end
 		
+		def self.read_item_value(ptr, item_type, size, notehandle)
+			case item_type
+			when API::TYPE_TEXT
+				return ptr.get_bytes(2, size-2)
+			when API::TYPE_TEXT_LIST
+				return API.read_text_list(ptr + 2)
+			when API::TYPE_NUMBER
+				# numbers are doubles
+				return ptr.get_double(2)
+			when API::TYPE_NUMBER_RANGE
+				return API.read_number_range(ptr + 2)
+			when API::TYPE_TIME
+				return API.read_time(ptr + 2)
+			when API::TYPE_TIME_RANGE
+				return API.read_time_range(ptr + 2)
+			when API::TYPE_NOTEREF_LIST
+				return API.read_ref_list(ptr+2)
+			when API::TYPE_MIME_PART
+				return MimePart.new(ptr, notehandle)
+			else
+				puts "Couldn't read item type #{item_type}"
+				return nil
+			end
+		end
 		def self.read_text_list(ptr)
 			# Read the LIST struct first, which just contains the entry count
 			list = LIST.new(ptr)
@@ -357,6 +613,18 @@ module Domino
 				string
 			end
 		end
+		def self.read_ref_list(ptr)
+			# Domino seems fairly confident these are always single-item, but I know better
+			list = LIST.new(ptr)
+			ptr += LIST.size
+			lengths = ptr.read_array_of_type(:uint16, :read_uint16, list[:ListEntries])
+			ptr += 2 * list[:ListEntries]
+			lengths.map do |length|
+				unid = UNIVERSALNOTEID.new(ptr)
+				ptr += length
+				unid
+			end
+		end
 		def self.read_number_range(ptr)
 			# Number "ranges" are actually just lists - real number ranges aren't actually supported in Domino
 			# Nonetheless, it uses the RANGE struct type... just in case, I guess
@@ -364,6 +632,7 @@ module Domino
 			ptr += RANGE.size
 			ptr.read_array_of_type(:double, :read_double, range[:ListEntries])
 		end
+		
 		def self.read_time(ptr)
 			self.timedate_to_time(TIMEDATE.new(ptr))
 		end

@@ -8,16 +8,22 @@ require "#{File.dirname(__FILE__)}/domino/database"
 require "#{File.dirname(__FILE__)}/domino/viewentry"
 require "#{File.dirname(__FILE__)}/domino/viewentrycollection"
 require "#{File.dirname(__FILE__)}/domino/view"
+require "#{File.dirname(__FILE__)}/domino/document"
+require "#{File.dirname(__FILE__)}/domino/item"
 
 module Domino
 	NotesErrors = {
 		273 => "Unable to access files directory",
 		421 => "The NOTES.INI file cannot be found on the search path (PATH)",
+		546 => "Note item not found",
 		582 => "You are not authorized to perform that operation",
 		781 => "You are not authorized to access the view",
 		813 => "Collation number specified negative or greater than number of collations in view.",
 		1543 => "Encountered zero length record.",
-		2055 => "The server is not responding. The server may be down or you may be experiencing network problems. Contact your system administrator if this problem persists."
+		2055 => "The server is not responding. The server may be down or you may be experiencing network problems. Contact your system administrator if this problem persists.",
+		2232 => "Warning: unexpected MIME error: ",
+		8459 => "An attempt was made to load a program with an incorrect format.",
+		15097 => "No MIME data."
 	}
 	
 	module LibC
@@ -36,6 +42,7 @@ module Domino
 		end
 		def message
 			return API.error_string(@error_code)
+=begin
 			#puts @error_code
 			begin
 				#ruby_buffer = FFI::MemoryPointer.new(256).write_string("\0" * 256)
@@ -51,6 +58,7 @@ module Domino
 				puts "Couldn't read message: #{e}"
 			end
 			API.error_string(@error_code)
+=end
 		end
 	end
 end

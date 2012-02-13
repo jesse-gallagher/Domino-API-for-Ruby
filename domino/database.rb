@@ -89,6 +89,53 @@ module Domino
 			end
 		end
 		
+		def get_doc_by_id(noteid)
+			modified_ptr = FFI::MemoryPointer.new(API::TIMEDATE)
+			note_class_ptr = FFI::MemoryPointer.new(API.find_type(:WORD))
+			originatorid_ptr = FFI::MemoryPointer.new(API::ORIGINATORID)
+			
+			# Get some header info
+			result = API.NSFDbGetNoteInfo(@handle, noteid, originatorid_ptr, modified_ptr, note_class_ptr)
+			raise NotesException.new(result) if result != 0
+			
+			originatorid = API::OriginatorID.new(originatorid_ptr)
+			modified = API::TIMEDATE.new(modified_ptr)
+			note_class = note_class_ptr.read_uint16
+			
+			# Open the note itself
+			handle_ptr = FFI::MemoryPointer.new(API.find_type(:NOTEHANDLE))
+			result = API.NSFNoteOpenExt(@handle, noteid, API::OPEN_RAW_MIME, handle_ptr)
+			raise NotesException.new(result) if result != 0
+			
+			
+			Document.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+		end
+		def get_doc_by_unid(unid)
+			if not unid.is_a?(API::UNIVERSALNOTEID)
+				unid = API::UNIVERSALNOTEID.from_s(unid.to_s)
+			end
+			
+			noteid_ptr = FFI::MemoryPointer.new(API.find_type(:NOTEID))
+			originatorid_ptr = FFI::MemoryPointer.new(API::ORIGINATORID)
+			modified_ptr = FFI::MemoryPointer.new(API::TIMEDATE)
+			note_class_ptr = FFI::MemoryPointer.new(API.find_type(:WORD))
+			# Get some header info
+			result = API.NSFDbGetNoteInfoByUNID(@handle, unid.to_ptr, noteid_ptr, originatorid_ptr, modified_ptr, note_class_ptr)
+			raise NotesException.new(result) if result != 0
+			
+			noteid = noteid_ptr.read_uint32
+			originatorid = API::OriginatorID.new(originatorid_ptr)
+			modified = API::TIMEDATE.new(modified_ptr)
+			note_class = note_class_ptr.read_uint16
+			
+			# Open the note itself
+			handle_ptr = FFI::MemoryPointer.new(API.find_type(:NOTEHANDLE))
+			result = API.NSFNoteOpenExt(@handle, noteid, API::OPEN_RAW_MIME, handle_ptr)
+			raise NotesException.new(result) if result != 0
+			
+			Document.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+		end
+		
 		def close
 			API.NSFDbClose(@handle)
 		end
