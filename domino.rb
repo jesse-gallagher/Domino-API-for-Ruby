@@ -9,6 +9,7 @@ require "#{File.dirname(__FILE__)}/domino/viewentry"
 require "#{File.dirname(__FILE__)}/domino/viewentrycollection"
 require "#{File.dirname(__FILE__)}/domino/view"
 require "#{File.dirname(__FILE__)}/domino/document"
+require "#{File.dirname(__FILE__)}/domino/documentcollection"
 require "#{File.dirname(__FILE__)}/domino/item"
 
 module Domino

@@ -19,7 +19,7 @@ module Domino
 			true
 		end
 		
-		def evaluate(formula, context=0)
+		def evaluate(formula, context=nil)
 			# First, compile the formula
 			rethFormula = FFI::MemoryPointer.new(API.find_type(:FORMULAHANDLE))
 			retFormulaLength = FFI::MemoryPointer.new(API.find_type(:WORD))
@@ -68,7 +68,7 @@ module Domino
 			retNoteModified = FFI::MemoryPointer.new(API.find_type(:WORD))
 			result = API.NSFComputeEvaluate(
 				rethCompute.read_pointer,
-				context == 0 ? 0 : context.handle,
+				context == nil ? 0 : context.handle,
 				rethResult,
 				retResultLength,
 				nil,

@@ -20,12 +20,16 @@ module Domino
 		end
 		
 		def filepath
-			fetch_filepath if @filepath == nil
+			fetch_filepath! if @filepath == nil
 			@filepath
 		end
 		def server
-			fetch_filepath if @server == nil
+			fetch_filepath! if @server == nil
 			@server
+		end
+		def replicaid
+			fetch_replica_info! if @replicaid == nil
+			@replicaid
 		end
 
 		# TODO: fix the segfault this causes
@@ -141,7 +145,7 @@ module Domino
 		end
 		
 		private
-		def fetch_filepath
+		def fetch_filepath!
 			canonical = FFI::MemoryPointer.from_string(" " * API::MAXPATH)
 			expanded = FFI::MemoryPointer.from_string(" " * API::MAXPATH)
 			result = API.NSFDbPathGet(@handle, canonical, expanded)
@@ -158,6 +162,16 @@ module Domino
 				@filepath = @expanded_filepath
 				@server = ""
 			end
+		end
+		def fetch_replica_info!
+			replica_info = API::DBREPLICAINFO.new
+			result = API.NSFDbReplicaInfoGet(@handle, replica_info.to_ptr)
+			raise NotesException.new(result) if result != 0
+			
+			@replicaid = replica_info[:ID].to_replicaid
+			@replica_flags = replica_info[:Flags]
+			@cutoff_interval = replica_info[:CutoffInterval]
+			@cutoff = replica_info[:Cutoff].to_t
 		end
 	end
 end

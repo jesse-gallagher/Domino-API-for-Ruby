@@ -247,6 +247,12 @@ module Domino
 		MIME_PART_BODY_IN_DBOBJECT = 0x00000004
 		MIME_PART_SHARED_DBOBJECT = 0x00000008
 		MIME_PART_SKIP_FOR_CONVERSION = 0x00000010
+		
+		# Replica stuff
+		REPLICA_ID_UNINITIALIZED = 0x00000000
+		REPLICA_ID_CATALOG = 0x00003301
+		REPLICA_ID_EVENT = 0x00003302
+		REPLICA_ID_NEVERREPLACE = 0x00001601
 	
 		class COLLECTIONPOSITION < FFI::Struct
 			layout :Level, :WORD,
@@ -298,6 +304,14 @@ module Domino
 			end
 			def to_t
 				to_time.to_t
+			end
+			
+			def to_i
+				(self[:Innards][0] << 32) + self[:Innards][1]
+			end
+			
+			def to_replicaid
+				("%08X" % self[:Innards][1]) + ":" + ("%08X" % self[:Innards][0])
 			end
 		end
 		class TIMEDATE_PAIR < FFI::Struct
@@ -400,6 +414,12 @@ module Domino
 				:Spare, :WORD,
 				:Spare, :DWORD
 		end
+		class DBREPLICAINFO < FFI::Struct
+			layout :ID, TIMEDATE,
+				:Flags, :WORD,
+				:CutoffInterval, :WORD,
+				:Cutoff, TIMEDATE
+		end
 		
 		
 		# Import methods
@@ -442,6 +462,7 @@ module Domino
 		attach_function "NSFDbPathGet", [:DBHANDLE, :pointer, :pointer], :STATUS
 		attach_function "NIFFindDesignNoteExt", [:DBHANDLE, :string, :WORD, :string, :pointer, :DWORD], :STATUS
 		attach_function "NSFDbGetNamesList", [:DBHANDLE, :DWORD, :pointer], :STATUS
+		attach_function "NSFDbReplicaInfoGet", [:DBHANDLE, :pointer], :STATUS
 		
 		# Formula/evaluate functions
 		attach_function "NSFFormulaCompile", [:string, :WORD, :string, :WORD, :pointer, :pointer, :pointer, :pointer, :pointer, :pointer, :pointer], :STATUS
