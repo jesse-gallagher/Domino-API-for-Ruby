@@ -19,6 +19,79 @@ module Domino
 			true
 		end
 		
+		def evaluate(formula, context=0)
+			# First, compile the formula
+			rethFormula = FFI::MemoryPointer.new(API.find_type(:FORMULAHANDLE))
+			retFormulaLength = FFI::MemoryPointer.new(API.find_type(:WORD))
+			retCompileError = FFI::MemoryPointer.new(API.find_type(:STATUS))
+			retCompileErrorLine = FFI::MemoryPointer.new(API.find_type(:WORD))
+			retCompileErrorColumn = FFI::MemoryPointer.new(API.find_type(:WORD))
+			retCompileErrorOffset = FFI::MemoryPointer.new(API.find_type(:WORD))
+			retCompileErrorLength = FFI::MemoryPointer.new(API.find_type(:WORD))
+			
+			result = API.NSFFormulaCompile(
+				nil,
+				0,
+				formula.to_s,
+				formula.to_s.size,
+				rethFormula,
+				retFormulaLength,
+				retCompileError,
+				retCompileErrorLine,
+				retCompileErrorColumn,
+				retCompileErrorOffset,
+				retCompileErrorLength
+			)
+			raise NotesException.new(result) if result != 0
+			
+			compile_error = retCompileError.read_uint16
+			if compile_error != 0
+				raise Exception.new("Formula compile error: " + {
+					:code => compile_error,
+					:line => retCompileErrorLine.read_uint16,
+					:column => retCompileErrorColumn.read_unt16,
+					:offset => retCompileErrorOffset.read_uint16,
+					:length => retCompileErrorLength.read_uint16
+				}.to_s)
+			end
+			
+			compiled_formula = API.OSLockObject(rethFormula.read_uint32)
+			
+			# Start the formula environment
+			rethCompute = FFI::MemoryPointer.new(API.find_type(:HCOMPUTE))
+			result = API.NSFComputeStart(0, compiled_formula, rethCompute)
+			raise NotesException.new(result) if result != 0
+			
+			# Evaluate the formula
+			rethResult = FFI::MemoryPointer.new(API.find_type(:DHANDLE))
+			retResultLength = FFI::MemoryPointer.new(API.find_type(:WORD))
+			retNoteModified = FFI::MemoryPointer.new(API.find_type(:WORD))
+			result = API.NSFComputeEvaluate(
+				rethCompute.read_pointer,
+				context == 0 ? 0 : context.handle,
+				rethResult,
+				retResultLength,
+				nil,
+				nil,
+				retNoteModified
+			)
+			raise NotesException.new(result) if result != 0
+			
+			formula_result_ptr = API.OSLockObject(rethResult.read_uint32)
+			formula_result = API.read_item_value(formula_result_ptr, formula_result_ptr.read_uint16, retResultLength.read_uint16, nil)
+			
+			API.OSUnlockObject(rethResult.read_uint32)
+			API.OSMemFree(rethResult.read_uint32)
+			
+			# Close down the formula environment
+			result = API.NSFComputeStop(rethCompute.read_pointer)
+			raise NotesException.new(result) if result != 0
+			
+			API.OSUnlockObject(rethFormula.read_uint32)
+			
+			return formula_result
+		end
+		
 		def username
 			username = FFI::MemoryPointer.new(:char, API::MAXUSERNAME+1)
 			result = API.SECKFMUserInfo(1, username, nil)

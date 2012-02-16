@@ -15,6 +15,7 @@ module Domino
 		
 		def read(parent, index, info_ptr, read_mask)
 			@parent = parent
+			@view = @parent.is_a?(View) ? @parent : @parent.parent
 			@index = index
 			
 			# Read in the NOTEID and advance past it
@@ -159,6 +160,10 @@ module Domino
 			
 			# Return the final pointer
 			info_ptr
+		end
+		
+		def document
+			category? ? null : @view.parent.doc_by_id(noteid)
 		end
 		
 		def category?

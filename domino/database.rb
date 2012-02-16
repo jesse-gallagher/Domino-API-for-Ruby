@@ -89,7 +89,7 @@ module Domino
 			end
 		end
 		
-		def get_doc_by_id(noteid)
+		def doc_by_id(noteid)
 			modified_ptr = FFI::MemoryPointer.new(API::TIMEDATE)
 			note_class_ptr = FFI::MemoryPointer.new(API.find_type(:WORD))
 			originatorid_ptr = FFI::MemoryPointer.new(API::ORIGINATORID)
@@ -110,7 +110,7 @@ module Domino
 			
 			Document.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
 		end
-		def get_doc_by_unid(unid)
+		def doc_by_unid(unid)
 			if not unid.is_a?(API::UNIVERSALNOTEID)
 				unid = API::UNIVERSALNOTEID.from_s(unid.to_s)
 			end

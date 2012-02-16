@@ -1,6 +1,6 @@
 module Domino
 	class View < Base
-		attr_reader :handle
+		attr_reader :handle, :parent
 		
 		def initialize(parent, handle, noteid)
 			@parent = parent
@@ -107,7 +107,7 @@ module Domino
 			position[:Level] = 0
 			position[:Tumbler][0] = 0
 			
-			ViewEntryCollection.new(self, position, 0xFFFFFFFF)
+			ViewEntryCollection.new(self, position)
 		end
 		
 		def entries_by_key(key, exact=false)
@@ -116,6 +116,8 @@ module Domino
 			end
 			
 			position = API::COLLECTIONPOSITION.new
+			position[:Level] = 0
+			position[:Tumbler][0] = 0
 			num_matches = FFI::MemoryPointer.new(API.find_type(:DWORD))
 			
 			# Create an ITEM_TABLE to pass in
@@ -124,7 +126,11 @@ module Domino
 			result = API.NIFFindByKey(
 				@handle,
 				table_ptr,
-				API::FIND_FIRST_EQUAL,
+				API::FIND_FIRST_EQUAL |
+					API::FIND_CASE_INSENSITIVE |
+					API::FIND_ACCENT_INSENSITIVE |
+					API::FIND_RETURN_DWORD |
+					(exact ? 0 : API::FIND_PARTIAL),
 				position,
 				num_matches
 			)

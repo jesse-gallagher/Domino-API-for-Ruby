@@ -1,6 +1,6 @@
 module Domino
 	class Document
-		attr_reader :parent, :noteid, :universalid, :modified, :note_class, :sequence, :sequence_time
+		attr_reader :handle, :parent, :noteid, :universalid, :modified, :note_class, :sequence, :sequence_time
 		
 		def initialize(parent, handle, noteid, originatorid, modified, note_class)
 			@parent = parent

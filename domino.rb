@@ -20,6 +20,7 @@ module Domino
 		781 => "You are not authorized to access the view",
 		813 => "Collation number specified negative or greater than number of collations in view.",
 		1028 => "Entry not found in index",
+		1387 => "Internal error:  Corrupted formula instance detected",
 		1543 => "Encountered zero length record.",
 		2055 => "The server is not responding. The server may be down or you may be experiencing network problems. Contact your system administrator if this problem persists.",
 		2232 => "Warning: unexpected MIME error: ",
@@ -43,6 +44,9 @@ module Domino
 		end
 		def message
 			return API.error_string(@error_code)
+			
+			
+			
 =begin
 			#puts @error_code
 			begin

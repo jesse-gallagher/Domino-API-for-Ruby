@@ -35,6 +35,8 @@ module Domino
 		typedef :pointer, :PMIMEENTITY
 		typedef :int, :MIMESYMBOL
 		typedef :pointer, :CCHANDLE
+		typedef :pointer, :HCOMPUTE
+		typedef :HANDLE, :FORMULAHANDLE
 		
 		
 		MAXPATH = 256
@@ -441,6 +443,12 @@ module Domino
 		attach_function "NIFFindDesignNoteExt", [:DBHANDLE, :string, :WORD, :string, :pointer, :DWORD], :STATUS
 		attach_function "NSFDbGetNamesList", [:DBHANDLE, :DWORD, :pointer], :STATUS
 		
+		# Formula/evaluate functions
+		attach_function "NSFFormulaCompile", [:string, :WORD, :string, :WORD, :pointer, :pointer, :pointer, :pointer, :pointer, :pointer, :pointer], :STATUS
+		attach_function "NSFComputeStart", [:WORD, :pointer, :pointer], :STATUS
+		attach_function "NSFComputeEvaluate", [:HCOMPUTE, :NOTEHANDLE, :pointer, :pointer, :pointer, :pointer, :pointer], :STATUS
+		attach_function "NSFComputeStop", [:HCOMPUTE], :STATUS
+		
 		# view/folder functions
 		def self.find_view(hFile, name, retNoteID)
 			# this is a macro in the API
@@ -704,7 +712,8 @@ module Domino
 			# This could probably be more efficient if done in a single loop,
 			#   but I don't really want to bother at the moment
 			values.each do |value|
-				size += ITEM.size
+				# Also take into account the type field
+				size += ITEM.size + 2
 				if value.is_a? String
 					size += value.size
 				elsif value.is_a? Number
@@ -726,18 +735,23 @@ module Domino
 				value_item = ITEM.new(values_ptr)
 				value_item[:NameLength] = 0
 				if value.is_a? String
-					value_size = value.size
+					value_size = value.size + 2
 					value_item[:ValueLength] = value_size
 					value_ptr = values_ptr + ITEM.size
+					value_ptr.write_uint16(TYPE_TEXT)
+					value_ptr += 2
 					value_ptr.write_string(value, value.size)
 				elsif value.is_a? Number
-					value_size = 8
+					value_size = 8 + 2
 					value_item[:ValueLength] = value_size
 					value_ptr = values_ptr + ITEM.size
+					value_ptr.write_uint16(TYPE_NUMBER)
+					value_ptr += 2
 					value_ptr.write_double(value)
 				end
 				values_ptr += ITEM.size + value_size
 			end
+			
 			
 			table_ptr
 		end
