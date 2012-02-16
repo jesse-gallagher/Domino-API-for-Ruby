@@ -13,6 +13,7 @@ module Domino
 			@sequence_time = originatorid.sequence_time.to_t
 		end
 		
+		# TODO: make this work
 		def convert_to_mime!
 			if !@converted_to_mime
 				#cc_handle = FFI::MemoryPointer.new(API.find_type(:CCHANDLE))

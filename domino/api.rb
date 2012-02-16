@@ -42,7 +42,6 @@ module Domino
     
 		MAXTUMBLERLEVELS = 32
 		MAXTUMBLERLEVELS_V2 = 8
-		NOTEID_CATEGORY = 0x80000000
 		COLLATION_SIGNATURE = 0x44
 		PERCENTILE_COUNT = 11
 		
@@ -106,6 +105,21 @@ module Domino
 		FT_SEARCH_EXT_FILESYSTEM = 0x00100000
 		FT_SEARCH_EXT_DATABASE = 0x00200000
 		
+		# Index search
+		FIND_PARTIAL = 0x0001
+		FIND_CASE_INSENSITIVE = 0x0002
+		FIND_RETURN_DWORD = 0x0004
+		FIND_ACCENT_INSENSITIVE = 0x0008
+		FIND_UPDATE_IF_NOT_FOUND = 0x0020
+		FIND_LESS_THAN = 0x0040
+		FIND_FIRST_EQUAL = 0x0000
+		FIND_LAST_EQUAL = 0x0080
+		FIND_GREATER_THAN = 0x00C0
+		FIND_EQUAL = 0x0800
+		FIND_COMPARE_MASK = 0x08C0
+		FIND_RANGE_OVERLAP = 0x0100
+		FIND_RETURN_ANY_NON_CATEGORY_MATCH = 0x0200
+		
 		# Documnt/note access
 		OPEN_SUMMARY = 0x0001
 		OPEN_NOVERIFYDEFAULT = 0x0002
@@ -159,6 +173,10 @@ module Domino
 		NOTE_CLASS_SINGLE_INSTANCE = NOTE_CLASS_DESIGN | NOTE_CLASS_ACL | NOTE_CLASS_INFO | NOTE_CLASS_ICON | NOTE_CLASS_HELP_INDEX
 		
 		NOTE_ID_SPECIAL = 0xFFFF0000
+		NOTEID_CATEGORY = 0x80000000
+		NOTEID_CATEGORY_TOTAL = 0xC0000000
+		NOTEID_CATEGORY_INDENT = 0x3F000000
+		NOTEID_CATEGORY_ID = 0x00FFFFFF
 		
 		NOTE_FLAG_READONLY = 0x0001
 		NOTE_FLAG_ABSTRACTED = 0x0002
@@ -437,6 +455,7 @@ module Domino
 		attach_function "NIFSetCollation", [:HCOLLECTION, :WORD], :STATUS
 		attach_function "NIFGetCollectionData", [:HCOLLECTION, :pointer], :STATUS
 		attach_function "NIFUpdateCollection", [:HCOLLECTION], :STATUS
+		attach_function "NIFFindByKey", [:HCOLLECTION, :pointer, :WORD, :pointer, :pointer], :STATUS
 		
 		# FT Search functions
 		attach_function "FTSearch", [:DBHANDLE, :pointer, :HCOLLECTION, :string, :DWORD, :WORD, :DHANDLE, :pointer, :pointer, :pointer], :STATUS
@@ -678,6 +697,49 @@ module Domino
 		def self.read_truncated_collectionposition_size(ptr)
 			#define COLLECTIONPOSITIONSIZE(p) (sizeof(DWORD) * ((p)->Level+2))
 			4 * (ptr.read_uint16+2)
+		end
+		def self.create_nameless_item_table(values)
+			size = ITEM_TABLE.size
+			# First, figure out how much size we're going to need
+			# This could probably be more efficient if done in a single loop,
+			#   but I don't really want to bother at the moment
+			values.each do |value|
+				size += ITEM.size
+				if value.is_a? String
+					size += value.size
+				elsif value.is_a? Number
+					# Numbers are doubles
+					size += 8
+				end
+			end
+			
+			table_ptr = FFI::MemoryPointer.new(size)
+			
+			table = ITEM_TABLE.new(table_ptr)
+			table[:Length] = size
+			table[:Items] = values.count
+			
+			# pack the values onto the end
+			values_ptr = table_ptr + ITEM_TABLE.size
+			values.each do |value|
+				value_size = 0
+				value_item = ITEM.new(values_ptr)
+				value_item[:NameLength] = 0
+				if value.is_a? String
+					value_size = value.size
+					value_item[:ValueLength] = value_size
+					value_ptr = values_ptr + ITEM.size
+					value_ptr.write_string(value, value.size)
+				elsif value.is_a? Number
+					value_size = 8
+					value_item[:ValueLength] = value_size
+					value_ptr = values_ptr + ITEM.size
+					value_ptr.write_double(value)
+				end
+				values_ptr += ITEM.size + value_size
+			end
+			
+			table_ptr
 		end
 	end
 end

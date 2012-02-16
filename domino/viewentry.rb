@@ -1,9 +1,17 @@
 module Domino
 	class ViewEntry
-		attr_reader :index, :noteid, :unid, :column_values, :note_class
+		attr_reader :index, :noteid, :unid, :note_class
 		attr_reader :sibling_count, :child_count, :descendant_count, :indent_level
 		attr_reader :any_unread, :unread, :position, :ft_search_score
 		attr_reader :column_items
+		
+		def column_values
+			if @parent.read_column_names
+				@column_items.map { |item| item.value }
+			else
+				@column_values
+			end
+		end
 		
 		def read(parent, index, info_ptr, read_mask)
 			@parent = parent
@@ -154,7 +162,7 @@ module Domino
 		end
 		
 		def category?
-			noteid & API::NOTE_ID_SPECIAL > 0
+			noteid & API::NOTEID_CATEGORY > 0
 		end
 	end
 end

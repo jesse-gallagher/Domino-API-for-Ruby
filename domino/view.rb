@@ -43,7 +43,7 @@ module Domino
 			end
 		end
 		
-		def ft_search(query, max_docs=0)
+		def ft_search!(query, max_docs=0)
 			# to search, first create a search handle, then execute the search
 			
 			close_search!
@@ -108,6 +108,29 @@ module Domino
 			position[:Tumbler][0] = 0
 			
 			ViewEntryCollection.new(self, position, 0xFFFFFFFF)
+		end
+		
+		def entries_by_key(key, exact=false)
+			if not key.is_a? Array
+				key = [key]
+			end
+			
+			position = API::COLLECTIONPOSITION.new
+			num_matches = FFI::MemoryPointer.new(API.find_type(:DWORD))
+			
+			# Create an ITEM_TABLE to pass in
+			table_ptr = API.create_nameless_item_table(key)
+			
+			result = API.NIFFindByKey(
+				@handle,
+				table_ptr,
+				API::FIND_FIRST_EQUAL,
+				position,
+				num_matches
+			)
+			raise NotesException.new(result) if result > 0
+			
+			ViewEntryCollection.new(self, position, num_matches.read_uint32, num_matches.read_uint32)
 		end
 		
 		def close
