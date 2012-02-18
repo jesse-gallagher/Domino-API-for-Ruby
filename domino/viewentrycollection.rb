@@ -14,7 +14,7 @@ module Domino
 			@return_count = return_count
 			@key_matches = key_matches
 			
-			@read_column_names = true
+			@read_column_names = false
 		end
 		
 		def count

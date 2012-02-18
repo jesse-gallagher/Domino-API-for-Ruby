@@ -19,6 +19,17 @@ module Domino
 			true
 		end
 		
+		def send_console_command(server, command)
+			hResponseText = FFI::MemoryPointer.new(API.find_type(:DHANDLE))
+			result = API.NSFRemoteConsole(server, command, hResponseText)
+			raise NotesException.new(result) if result != 0
+			
+			response_ptr = API.OSLockObject(hResponseText.read_uint32)
+			response = response_ptr.read_string
+			API.OSLockObject(hResponseText.read_uint32)
+			response
+		end
+		
 		def evaluate(formula, context=nil)
 			# First, compile the formula
 			rethFormula = FFI::MemoryPointer.new(API.find_type(:FORMULAHANDLE))
@@ -78,7 +89,7 @@ module Domino
 			raise NotesException.new(result) if result != 0
 			
 			formula_result_ptr = API.OSLockObject(rethResult.read_uint32)
-			formula_result = API.read_item_value(formula_result_ptr, formula_result_ptr.read_uint16, retResultLength.read_uint16, nil)
+			formula_result = API.read_item_value(formula_result_ptr, retResultLength.read_uint16, nil)
 			
 			API.OSUnlockObject(rethResult.read_uint32)
 			API.OSMemFree(rethResult.read_uint32)

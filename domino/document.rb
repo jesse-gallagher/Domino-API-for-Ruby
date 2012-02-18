@@ -75,7 +75,7 @@ module Domino
 				API.OSUnlockObject(result_handle)
 				API.OSMemFree(result_handle)
 			else
-				value = API.read_item_value(block_ptr, type, length, @handle)
+				value = API.read_item_value(block_ptr, length, @handle)
 			end
 			# unlocking a block only needs the pool ID
 			API.OSUnlockObject(blockid[:pool])
@@ -91,7 +91,7 @@ module Domino
 				if type == API::TYPE_COMPOSITE
 					
 				else
-					value = API.read_item_value(value, type, value_length, @handle)
+					value = API.read_item_value(value, value_length, @handle)
 					yield Item.new(item_name, type, value)
 				end
 			end

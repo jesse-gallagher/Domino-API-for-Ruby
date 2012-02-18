@@ -88,72 +88,16 @@ module Domino
 			end
 			
 			if read_mask & API::READ_MASK_SUMMARYVALUES > 0
-				# now fetch the ITEM_VALUE_TABLE and advance to the next entry
-				table = API::ITEM_VALUE_TABLE.new(info_ptr)
-			
-				# add the size of ITEM_VALUE_TABLE to the pointer to get to the data value lengths
-				summary_ptr = info_ptr + API::ITEM_VALUE_TABLE.size
-				# read in an array of WORD values of length table[:Items] to get the sizes of each summary data entry
-				# then increment the pointer appropriately
-				size_list = summary_ptr.read_array_of_type(:uint16, :read_uint16, table[:Items])
-				summary_ptr += 2 * table[:Items]
-			
-				# the values in size_list are 0 if the value is empty and 2 + the size of the value otherwise
-				# this 2 comes from the size of the data type, which is for some reason not accounted for
-				#    when the value is empty
-			
-				column_values = []
-				0.upto(table[:Items]-1) do |i|
-					if(size_list[i] == 0)
-						column_values << nil
-						summary_ptr += 2
-					else
-						item_type = summary_ptr.read_uint16
-						# read in usable item types
-						column_values << API::read_item_value(summary_ptr, item_type, size_list[i], nil)
-
-						summary_ptr += size_list[i]
-					end
-				end
-				@column_values = column_values
+				table = API::ITEM_VALUE_TABLE.new(info_ptr).read_values!
+				@column_values = table.values
 				
 				info_ptr += table[:Length]
 			end
 			
 			if read_mask & API::READ_MASK_SUMMARY > 0
-				# Fetch the ITEM_TABLE
-				table = API::ITEM_TABLE.new(info_ptr)
 				
-				# Advance to the table's ITEM structures and read them in
-				summary_ptr = info_ptr + API::ITEM_TABLE.size
-				item_info = []
-				1.upto(table[:Items]) do
-					item_info << API::ITEM.new(summary_ptr)
-					summary_ptr += API::ITEM.size
-				end
-				
-				# Now that we have the name and data size values for the ITEMS, read them in
-				column_items = []
-				column_values
-				0.upto(table[:Items]-1) do |i|
-					# Read in the name
-					name = summary_ptr.get_bytes(0, item_info[i][:NameLength])
-					summary_ptr += item_info[i][:NameLength]
-					
-					# Presumably, this works like SUMMARYVALUES, in that a 0 item size means no data entry
-					type = 0
-					value = nil
-					if item_info[i][:ValueLength] > 0
-						item_type = summary_ptr.read_uint16
-						value = API::read_item_value(summary_ptr, item_type, item_info[i][:ValueLength], nil)
-						
-						summary_ptr += item_info[i][:ValueLength]
-					end
-					
-					column_items << API::Item.new(name, item_type, value)
-					#column_items[name] = value
-				end
-				@column_items = column_items
+				table = API::ITEM_TABLE.new(info_ptr).read_items!
+				@column_items = table.items
 				
 				info_ptr += table[:Length]
 			end
