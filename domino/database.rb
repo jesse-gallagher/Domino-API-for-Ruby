@@ -54,20 +54,10 @@ module Domino
 		end
 =end
     
-		def get_view(viewname)
-			view_noteid = FFI::MemoryPointer.new(:int)
-			result = API.find_view(@handle, viewname.to_s, view_noteid)
-			if result == 0
-				handle = FFI::MemoryPointer.new(:int)
-				result = API.NIFOpenCollection(@handle, @handle, view_noteid.read_int, 0, API::NULLHANDLE, handle, nil, nil, nil, nil)
-				if result != 0
-					raise NotesException.new(result)
-				end
-				View.new(self, handle.read_int, view_noteid.read_int)
-			else
-				raise NotesException.new(result)
-			end
+		def get_view(view_name)
+			self.get_design_note(view_name, API::DFLAGPAT_VIEWS_AND_FOLDERS, View)
 		end
+=begin
 		def get_view_as_user(viewname, username)
 			names_list = FFI::MemoryPointer.new(:int, API::NAMES_LIST.size + 100)
 			result = API.NSFBuildNamesList(nil, 0, names_list)
@@ -92,8 +82,21 @@ module Domino
 				raise NotesException.new(result)
 			end
 		end
+=end
 		
-		def doc_by_id(noteid)
+		def get_form(form_name)
+			self.get_design_note(form_name, API::DFLAGPAT_FORM_OR_SIMILAR, Form)
+		end
+		
+		def get_design_note(note_name, filter, doc_class=Document)
+			noteid_ptr = FFI::MemoryPointer.new(API.find_type(:NOTEID))
+			result = API.NIFFindDesignNoteExt(@handle, note_name.to_s, API::NOTE_CLASS_ALL, filter.to_s, noteid_ptr, 0)
+			raise NotesException.new(result) if result != 0
+			
+			self.doc_by_id(noteid_ptr.read_uint32, doc_class)
+		end
+		
+		def doc_by_id(noteid, doc_class=Document)
 			modified_ptr = FFI::MemoryPointer.new(API::TIMEDATE)
 			note_class_ptr = FFI::MemoryPointer.new(API.find_type(:WORD))
 			originatorid_ptr = FFI::MemoryPointer.new(API::ORIGINATORID)
@@ -112,7 +115,7 @@ module Domino
 			raise NotesException.new(result) if result != 0
 			
 			
-			Document.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+			doc_class.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
 		end
 		def doc_by_unid(unid)
 			if not unid.is_a?(API::UNIVERSALNOTEID)
@@ -138,6 +141,13 @@ module Domino
 			raise NotesException.new(result) if result != 0
 			
 			Domino::Document.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+		end
+		
+		def to_html(options=nil)
+			Session.html_converter(options) do |converter|
+				result = API.HTMLConvertNote(converter, @handle, 0, 0, nil)
+				raise NotesException.new(result) if result != 0
+			end
 		end
 		
 		def to_dxl(properties=nil)

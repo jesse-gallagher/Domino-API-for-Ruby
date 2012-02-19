@@ -45,6 +45,7 @@ module Domino
 		attach_function "NSFDbClose", [:DBHANDLE], :void
 		attach_function "NSFDbInfoGet", [:DBHANDLE, :pointer], :STATUS
 		attach_function "NSFDbPathGet", [:DBHANDLE, :pointer, :pointer], :STATUS
+		attach_function "NIFFindDesignNote", [:DBHANDLE, :string, :WORD, :pointer], :STATUS
 		attach_function "NIFFindDesignNoteExt", [:DBHANDLE, :string, :WORD, :string, :pointer, :DWORD], :STATUS
 		attach_function "NSFDbGetNamesList", [:DBHANDLE, :DWORD, :pointer], :STATUS
 		attach_function "NSFDbReplicaInfoGet", [:DBHANDLE, :pointer], :STATUS

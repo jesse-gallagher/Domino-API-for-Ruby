@@ -111,8 +111,8 @@ module Domino
 			end
 		end
 		
-		def to_html
-			Session.html_converter do |converter|
+		def to_html(options=nil)
+			Session.html_converter(options) do |converter|
 				result = API.HTMLConvertNote(converter, @parent.handle, @handle, 0, nil)
 				raise NotesException.new(result) if result != 0
 			end

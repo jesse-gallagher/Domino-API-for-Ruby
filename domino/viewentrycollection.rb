@@ -30,7 +30,7 @@ module Domino
 			#entries_list = []
 			begin
 				result = API.NIFReadEntries(
-					@parent.handle,
+					@parent.collection_handle,
 					@position.to_ptr,
 					@parent.ft_searched? ? API::NAVIGATE_NEXT_HIT : API::NAVIGATE_NEXT,
 					@position[:Tumbler][0] == 0 ? 1 : 0,

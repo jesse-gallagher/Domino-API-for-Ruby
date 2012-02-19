@@ -1,7 +1,8 @@
 module Domino
-	class View < Base
-		attr_reader :handle, :parent
+	class View < Document
+		attr_reader :handle, :parent, :collection_handle
 		
+=begin
 		def initialize(parent, handle, noteid)
 			@parent = parent
 			@handle = handle
@@ -10,20 +11,41 @@ module Domino
 			@collection_data = false
 			@ft_searched = false
 		end
+=end
+		def initialize(parent, handle, noteid, originatorid, modified, note_class)
+			super(parent, handle, noteid, originatorid, modified, note_class)
+			
+			collection_handle_ptr = FFI::MemoryPointer.new(API.find_type(:HCOLLECTION))
+			result = API.NIFOpenCollection(
+				@parent.handle,
+				@parent.handle,
+				noteid,
+				0,
+				API::NULLHANDLE,
+				collection_handle_ptr,
+				nil,
+				nil,
+				nil,
+				nil
+			)
+			raise NotesException.new(result) if result != 0
+			
+			@collection_handle = collection_handle_ptr.read_uint16
+		end
 		
 		def collation
 			coll_num = FFI::MemoryPointer.new(:uint16)
-			result = API.NIFGetCollation(@handle, coll_num)
+			result = API.NIFGetCollation(@collection_handle, coll_num)
 			raise NotesException.new(result) if result != 0
 			coll_num.read_uint16
 		end
 		def collation=(coll_num)
-			result = API.NIFSetCollation(@handle, coll_num)
+			result = API.NIFSetCollation(@collection_handle, coll_num)
 			raise NotesException.new(result) if result != 0
 		end
 		
 		def update
-			result = API.NIFUpdateCollection(@handle)
+			result = API.NIFUpdateCollection(@collection_handle)
 			raise NotesException.new(result) if result != 0
 		end
 		
@@ -59,7 +81,7 @@ module Domino
 			result = API.FTSearch(
 				@parent.handle,
 				handle_ptr,
-				@handle,
+				@collection_handle,
 				query.to_s,
 				API::FT_SEARCH_SET_COLL | API::FT_SEARCH_SCORES,
 				max_docs,
@@ -86,7 +108,7 @@ module Domino
 			result = API.FTSearch(
 				@parent.handle,
 				handle_ptr,
-				@handle,
+				@collection_handle,
 				query.to_s,
 				API::FT_SEARCH_SET_COLL | API::FT_SEARCH_NUMDOCS_ONLY,
 				max_docs,
@@ -124,7 +146,7 @@ module Domino
 			table_ptr = API.create_nameless_item_table(key)
 			
 			result = API.NIFFindByKey(
-				@handle,
+				@collection_handle,
 				table_ptr,
 				API::FIND_FIRST_EQUAL |
 					API::FIND_CASE_INSENSITIVE |
@@ -139,28 +161,17 @@ module Domino
 			ViewEntryCollection.new(self, position, num_matches.read_uint32, num_matches.read_uint32)
 		end
 		
-		def to_html
-			doc = @parent.doc_by_id(@noteid)
-			html = doc.to_html
-			doc.close
-			html
-		end
-		def to_dxl(properties=nil)
-			doc = @parent.doc_by_id(@noteid)
-			dxl = doc.to_dxl(properties)
-			doc.close
-			dxl
-		end
-		
 		def close
 			close_search!
-			API.NIFCloseCollection @handle
+			API.NIFCloseCollection @collection_handle
+			
+			super
 		end
 		
 		private
 		def fetch_collection_data!
 			data_handle = FFI::MemoryPointer.new(:int)
-			result = API.NIFGetCollectionData(@handle, data_handle)
+			result = API.NIFGetCollectionData(@collection_handle, data_handle)
 			raise NotesException.new(result) if result != 0
 			data_ptr = API.OSLockObject(data_handle.read_int)
 			@collection_data = API::COLLECTIONDATA.new(data_ptr)
