@@ -14,6 +14,7 @@ require "#{File.dirname(__FILE__)}/domino/item"
 
 module Domino
 	NotesErrors = {
+		259 => "File does not exist",
 		273 => "Unable to access files directory",
 		421 => "The NOTES.INI file cannot be found on the search path (PATH)",
 		546 => "Note item not found",

@@ -2,7 +2,8 @@ module Domino
 	class Item
 		attr_reader :name, :type, :value
 		
-		def initialize(name, type, value)
+		def initialize(parent, name, type, value)
+			@parent = parent
 			@name = name
 			@type = type
 			@value = value
@@ -16,8 +17,4 @@ module Domino
 			}.to_s
 		end
 	end
-	
-	#class RichTextItem
-		
-	#end
 end

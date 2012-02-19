@@ -1,3 +1,5 @@
+require "date"
+
 module Domino
 	module API
 		class COLLECTIONPOSITION < FFI::Struct
@@ -156,7 +158,18 @@ module Domino
 				:GM, :uint64
 			# GM is actually a TIMEDATE structure
 			def to_t
-				Time.utc(self[:year], self[:month], self[:day], self[:hour], self[:minute], self[:second])
+				if self[:hour] == -1
+					Date.new(self[:year], self[:month], self[:day])
+				else
+					Time.utc(
+						self[:year] == -1 ? 0 : self[:year],
+						self[:month] == -1 ? 0 : self[:month],
+						self[:day] == -1 ? 0 : self[:day],
+						self[:hour] == -1 ? 0 : self[:hour],
+						self[:minute] == -1 ? 0 : self[:minute],
+						self[:second] == -1 ? 0 : self[:second]
+					)
+				end
 			end
 			def to_s
 				self.to_t.to_s
@@ -237,5 +250,58 @@ module Domino
 				:CutoffInterval, :WORD,
 				:Cutoff, TIMEDATE
 		end
+		
+		enum :HTMLAPI_PROP_TYPE, [
+			:HTMLAPI_PROP_TEXTLENGTH, 0,
+			:HTMLAPI_PROP_NUMREFS, 1,
+			:HTMLAPI_PROP_USERAGENT_LEN, 2,
+			:HTMLAPI_PROP_USERAGENT, 4,
+			:HTMLAPI_PROP_BINARYDATA, 6,
+			:HTMLAPI_PROP_MIMEMAXLINELENSEEN, 102
+		]
+		
+		# DXL enums
+		enum :DXLIMPORTOPTION, [
+			:DXLIMPORTOPTION_IGNORE, 1,
+			:DXLIMPORTOPTION_CREATE, 2,
+			:DXLIMPORTOPTION_IGNORE_ELSE_CREATE, 3,
+			:DXLIMPORTOPTION_CREATE_RESERVED2, 4,
+			:DXLIMPORTOPTION_REPLACE_ELSE_IGNORE, 5,
+			:DXLIMPORTOPTION_REPLACE_ELSE_CREATE, 6,
+			:DXLIMPORTOPTION_REPLACE_RESERVED1, 7,
+			:DXLIMPORTOPTION_REPLACE_RESERVED2, 8,
+			:DXLIMPORTOPTION_UPDATE_ELSE_IGNORE, 9,
+			:DXLIMPORTOPTION_UPDATE_ELSE_CREATE, 10,
+			:DXLIMPORTOPTION_UPDATE_RESERVED1, 11,
+			:DXLIMPORTOPTION_UPDATE_RESERVED2, 12
+		]
+		enum :DXL_EXPORT_PROPERTY, [
+			:eDxlEportResultLog, 1,
+			:eDefaultDoctypeSYSTEM, 2,
+			:eDoctypeSYSTEM, 3,
+			:eDXLBannerComments, 4,
+			:eDXLExportCharset, 5,
+			:eDxlRichtextOption, 6,
+			:eDxlExportResultLogComment, 7,
+			:eDxlValidationStyle, 8,
+			:eDxlDefaultSchemaLocation, 10,
+			:eDxlMimeOption, 11,
+			:eAttachmentOmittedExt, 12,
+			:eOLEObjectOmittedText, 13,
+			:ePictureOmittedText, 14,
+			:eOmitItemName, 15,
+			:eRestrictToItemNames, 16,
+			:eForceNoteFormat, 30,
+			:eExitOnFirstFatalError, 31,
+			:eOutputRootAttrs, 32,
+			:eOutputXmlDecl, 33,
+			:eOutputDOCTYPE, 34,
+			:eConvertNotesbitmapsToGIF, 35,
+			:eOmitRichtextAttachments, 36,
+			:eOmitOLEObjects, 37,
+			:eOmitMiscFileObjects, 38,
+			:eOmitPictures, 39,
+			:eUncompressAttachments, 40
+		]
 	end
 end

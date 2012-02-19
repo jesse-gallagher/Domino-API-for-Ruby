@@ -35,7 +35,9 @@ module Domino
 		typedef :pointer, :CCHANDLE
 		typedef :pointer, :HCOMPUTE
 		typedef :HANDLE, :FORMULAHANDLE
-		
+		typedef :DWORD, :MEMHANDLE
+		typedef :MEMHANDLE, :HTMLHANDLE
+		typedef :MEMHANDLE, :DXLEXPORTHANDLE
 		
 		MAXPATH = 256
 		DFLAGPAT_VIEWS_AND_FOLDERS = "-G40n^"

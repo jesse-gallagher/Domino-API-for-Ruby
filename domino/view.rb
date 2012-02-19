@@ -139,6 +139,19 @@ module Domino
 			ViewEntryCollection.new(self, position, num_matches.read_uint32, num_matches.read_uint32)
 		end
 		
+		def to_html
+			doc = @parent.doc_by_id(@noteid)
+			html = doc.to_html
+			doc.close
+			html
+		end
+		def to_dxl(properties=nil)
+			doc = @parent.doc_by_id(@noteid)
+			dxl = doc.to_dxl(properties)
+			doc.close
+			dxl
+		end
+		
 		def close
 			close_search!
 			API.NIFCloseCollection @handle

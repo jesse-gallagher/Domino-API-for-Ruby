@@ -91,7 +91,7 @@ module Domino
 		callback "NSFItemScanCallback", [:WORD, :WORD, :pointer, :WORD, :pointer, :DWORD, :pointer], :STATUS
 		attach_function "NSFItemScan", [:NOTEHANDLE, "NSFItemScanCallback", :pointer], :STATUS
 		
-		# Rich text and MIME
+		# Rich text, MIME, and HTML
 		attach_function "ConvertItemToText", [BLOCKID.by_value, :DWORD, :string, :WORD, :pointer, :pointer, :BOOL], :STATUS
 		
 		attach_function "MIMEOpenDirectory", [:NOTEHANDLE, :pointer], :STATUS
@@ -105,6 +105,24 @@ module Domino
 		
 		attach_function "MMCreateConvControls", [:CCHANDLE], :STATUS
 		attach_function "MMDestroyConvControls", [:CCHANDLE], :STATUS
+		
+		attach_function "HTMLProcessInitialize", [], :STATUS
+		attach_function "HTMLProcessTerminate", [], :STATUS
+		attach_function "HTMLCreateConverter", [:pointer], :STATUS
+		attach_function "HTMLDestroyConverter", [:HTMLHANDLE], :STATUS
+		attach_function "HTMLGetText", [:HTMLHANDLE, :DWORD, :pointer, :pointer], :STATUS
+		attach_function "HTMLGetProperty", [:HTMLHANDLE, :HTMLAPI_PROP_TYPE, :pointer], :STATUS
+		attach_function "HTMLSetHTMLOptions", [:HTMLHANDLE, :pointer], :STATUS
+		attach_function "HTMLConvertItem", [:HTMLHANDLE, :DBHANDLE, :NOTEHANDLE, :string], :STATUS
+		attach_function "HTMLConvertNote", [:HTMLHANDLE, :DBHANDLE, :NOTEHANDLE, :DWORD, :string], :STATUS
+		
+		# DXL
+		attach_function "DXLCreateExporter", [:pointer], :STATUS
+		attach_function "DXLDeleteExporter", [:DXLEXPORTHANDLE], :void
+		attach_function "DXLSetExporterProperty", [:DXLEXPORTHANDLE, :DXL_EXPORT_PROPERTY, :pointer], :STATUS
+		callback "DXLExportCallback", [:pointer, :DWORD, :pointer], :void
+		attach_function "DXLExportNote", [:DXLEXPORTHANDLE, "DXLExportCallback", :NOTEHANDLE, :pointer], :STATUS
+		attach_function "DXLExportDatabase", [:DXLEXPORTHANDLE, "DXLExportCallback", :DBHANDLE, :pointer], :STATUS
 		
 		# ID tables
 		attach_function "IDCreateTable", [:DWORD, :pointer], :STATUS

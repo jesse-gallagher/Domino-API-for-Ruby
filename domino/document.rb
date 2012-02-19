@@ -89,14 +89,75 @@ module Domino
 				# So... can I just read the item value from these parameters?
 				type = value.read_uint16
 				if type == API::TYPE_COMPOSITE
-					
+					# Rich text is a bag of hurt, so the best way may be to export it as DXL
+					dxl = self.to_dxl
+					start = "<item name='#{item_name}'><richtext>"
+					start_index = dxl.index(start) + start.length + 1 # for the newline
+					end_index = dxl.index("</richtext>", start_index) - 1
+					yield Item.new(self, item_name, type, dxl[start_index..end_index])
 				else
 					value = API.read_item_value(value, value_length, @handle)
-					yield Item.new(item_name, type, value)
+					yield Item.new(self, item_name, type, value)
 				end
 			end
 			result = API.NSFItemScan(@handle, process_item, nil)
 			raise NotesException.new(result) if result != 0
+		end
+		
+		def get_item_html(item_name)
+			Session.html_converter do |converter|
+				result = API.HTMLConvertItem(converter, @parent.handle, @handle, item_name.to_s)
+				raise NotesException.new(result) if result != 0
+			end
+		end
+		
+		def to_html
+			Session.html_converter do |converter|
+				result = API.HTMLConvertNote(converter, @parent.handle, @handle, 0, nil)
+				raise NotesException.new(result) if result != 0
+			end
+		end
+		
+		def to_dxl(properties=nil)
+			dxl = ""
+			
+			hDXLExport = FFI::MemoryPointer.new(API.find_type(:DXLEXPORTHANDLE))
+			result = API.DXLCreateExporter(hDXLExport)
+			raise NotesException.new(result) if result != 0
+			
+			# Set any options
+			if properties != nil and properties.is_a? Hash
+				properties.each do |key, value|
+					value_ptr = nil
+					if not value.is_a? FFI::Pointer
+						# Then it can only legally be a boolean or string
+						if value.is_a? TrueClass
+							value_ptr = FFI::MemoryPointer.new(API.find_type(:BOOL))
+							value_ptr.write_uint32(1)
+						elsif value.is_a? FalseClass
+							value_ptr = FFI::MemoryPointer.new(API.find_type(:BOOL))
+							value_ptr.write_uint32(0)
+						else
+							value_ptr = FFI::MemoryPointer.from_string(value.to_s)
+						end
+					else
+						value_ptr = value
+					end
+					
+					result = API.DXLSetExporterProperty(hDXLExport.read_uint32, key, value_ptr)
+				end
+			end
+			
+			process_xml_block = Proc.new do |pBuffer, length, pAction|
+				dxl += pBuffer.read_string(length)
+			end
+			
+			result = API.DXLExportNote(hDXLExport.read_uint32, process_xml_block, @handle, nil)
+			raise NotesException.new(result) if result != 0
+			
+			API.DXLDeleteExporter(hDXLExport.read_uint32)
+			
+			dxl
 		end
 		
 		def close

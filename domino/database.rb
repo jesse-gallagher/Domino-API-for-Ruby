@@ -137,7 +137,49 @@ module Domino
 			result = API.NSFNoteOpenExt(@handle, noteid, API::OPEN_RAW_MIME, handle_ptr)
 			raise NotesException.new(result) if result != 0
 			
-			Document.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+			Domino::Document.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+		end
+		
+		def to_dxl(properties=nil)
+			dxl = ""
+			
+			hDXLExport = FFI::MemoryPointer.new(API.find_type(:DXLEXPORTHANDLE))
+			result = API.DXLCreateExporter(hDXLExport)
+			raise NotesException.new(result) if result != 0
+			
+			# Set any options
+			if properties != nil and properties.is_a? Hash
+				properties.each do |key, value|
+					value_ptr = nil
+					if not value.is_a? FFI::Pointer
+						# Then it can only legally be a boolean or string
+						if value.is_a? TrueClass
+							value_ptr = FFI::MemoryPointer.new(API.find_type(:BOOL))
+							value_ptr.write_uint32(1)
+						elsif value.is_a? FalseClass
+							value_ptr = FFI::MemoryPointer.new(API.find_type(:BOOL))
+							value_ptr.write_uint32(0)
+						else
+							value_ptr = FFI::MemoryPointer.from_string(value.to_s)
+						end
+					else
+						value_ptr = value
+					end
+					
+					result = API.DXLSetExporterProperty(hDXLExport.read_uint32, key, value_ptr)
+				end
+			end
+			
+			process_xml_block = Proc.new do |pBuffer, length, pAction|
+				dxl += pBuffer.read_string(length)
+			end
+			
+			result = API.DXLExportDatabase(hDXLExport.read_uint32, process_xml_block, @handle, nil)
+			raise NotesException.new(result) if result != 0
+			
+			API.DXLDeleteExporter(hDXLExport.read_uint32)
+			
+			dxl
 		end
 		
 		def close

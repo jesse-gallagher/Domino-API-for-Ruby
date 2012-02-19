@@ -1,15 +1,19 @@
 module Domino
 	class Session < Base
 		def initialize(program, ini)
-			argv = string_array_to_inoutptr([program, ini])
+			argv = Session.string_array_to_inoutptr([program, ini])
 			
 			result = API.NotesInitExtended(2, argv)
-			if result != 0
-				raise API.error_string(result)
-			end
+			raise NotesException.new(result) if result != 0
+			
+			result = API.HTMLProcessInitialize
+			raise NotesException.new(result) if result != 0
 		end
 		
-		def term; API.NotesTerm; end
+		def close
+			API.HTMLProcessTerminate
+			API.NotesTerm
+		end
 		
 		def ping(server)
 			result = API.NSPingServer(server, nil, nil)
@@ -160,10 +164,59 @@ module Domino
 			end
 		end
 		
+		def self.html_converter(options=nil)
+			if options == nil or !options.is_a? Array
+				options = [
+					"ForceSectionExpand=1",
+					"ForceOutlineExpand=1",
+					"RowAtATimeTableAlt=1",
+					"TableCaptionFromTitle=1",
+					"TextExactSpacing=1",
+					"XMLCompatibleHTML=1",
+					nil
+				]
+			else
+				options << nil if options.last != nil
+			end
+			
+			htmlhandle_ptr = FFI::MemoryPointer.new(API.find_type(:HTMLHANDLE))
+			
+			# Initialize the HTML converter
+			result = API.HTMLCreateConverter(htmlhandle_ptr)
+			raise NotesException.new(result) if result != 0
+			htmlhandle = htmlhandle_ptr.read_uint32
+			
+			html = ""
+			
+			# Set the converter options
+			options_ptr = Domino::Session.string_array_to_inoutptr(options)
+			result = API.HTMLSetHTMLOptions(htmlhandle, options_ptr)
+			raise NotesException.new(result) if result != 0
+			
+			# This converts the item into the converter's special buffer
+			#result = API.HTMLConvertItem(htmlhandle, @parent.handle, @handle, item_name.to_s)
+			yield htmlhandle
+			
+			# To get the buffer content, find the text length, create a buffer, and fetch
+			text_length = FFI::MemoryPointer.new(API.find_type(:DWORD))
+			result = API.HTMLGetProperty(htmlhandle, :HTMLAPI_PROP_TEXTLENGTH, text_length)
+			raise NotesException.new(result) if result != 0
+			
+			text = FFI::MemoryPointer.new(:char, text_length.read_uint32)
+			result = API.HTMLGetText(htmlhandle, 0, text_length, text)
+			raise NotesException.new(result) if result != 0
+			
+			html = text.read_string(text_length.read_uint32)
+			
+			# Destroy the HTML converter
+			result = API.HTMLDestroyConverter(htmlhandle)
+			raise NotesException.new(result) if result != 0
+			
+			html
+		end
 		
-		private
-		def string_array_to_inoutptr(ary)
-			ptrs = ary.map { |a| FFI::MemoryPointer.from_string(a) }
+		def self.string_array_to_inoutptr(ary)
+			ptrs = ary.map { |a| a == nil ? nil : FFI::MemoryPointer.from_string(a) }
 			block = FFI::MemoryPointer.new(:pointer, ptrs.length)
 			block.write_array_of_pointer ptrs
 			#argv = FFI::MemoryPointer.new(:pointer)
