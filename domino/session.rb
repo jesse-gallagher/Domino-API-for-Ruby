@@ -1,6 +1,8 @@
 module Domino
 	class Session < Base
 		def initialize(program, ini)
+			super
+			
 			argv = Session.string_array_to_inoutptr([program, ini])
 			
 			result = API.NotesInitExtended(2, argv)
@@ -10,16 +12,9 @@ module Domino
 			raise NotesException.new(result) if result != 0
 		end
 		
-		def close
-			API.HTMLProcessTerminate
-			API.NotesTerm
-		end
-		
 		def ping(server)
 			result = API.NSPingServer(server, nil, nil)
-			if result != 0
-				raise NotesException.new(result)
-			end
+			raise NotesException.new(result) if result != 0
 			true
 		end
 		
@@ -30,7 +25,7 @@ module Domino
 			
 			response_ptr = API.OSLockObject(hResponseText.read_uint32)
 			response = response_ptr.read_string
-			API.OSLockObject(hResponseText.read_uint32)
+			API.OSUnlockObject(hResponseText.read_uint32)
 			response
 		end
 		
@@ -116,11 +111,19 @@ module Domino
 				raise NotesException.new(result)
 			end
 		end
+		def user_info
+			self.get_user_info(self.username)
+		end
 		def get_user_info(username)
 			names_list_handle = FFI::MemoryPointer.new(:int)
 			result = API.NSFBuildNamesList(username, 0, names_list_handle)
 			if result == 0
-				API::NameInfo.new(names_list_handle.read_int)
+				#API::NameInfo.new(names_list_handle.read_int)
+				ptr = API.OSLockObject(names_list_handle.read_int)
+				name_list = API::NAMES_LIST.new(ptr)
+				hash = name_list.to_h
+				API.OSUnlockObject(names_list_handle.read_int)
+				hash
 			else
 				raise NotesException.raise(result)
 			end
@@ -132,8 +135,9 @@ module Domino
 			if result != 0
 				raise NotesException.new(result)
 			end
-			Database.new(db_handle.read_int)
+			add_child Database.new(db_handle.read_int)
 		end
+=begin
 		def get_database_as_user(server, path, username)
 			names_list = FFI::MemoryPointer.new(:int, API::NAMES_LIST.size + 100)
 			result = API.NSFBuildNamesList(username, 0, names_list)
@@ -155,6 +159,14 @@ module Domino
 				raise NotesException.new(result)
 			end
 		end
+=end
+		
+		def close
+			super
+			
+			API.HTMLProcessTerminate
+			API.NotesTerm
+		end
 		
 		def construct_path(server, path)
 			if server == nil or server == ""
@@ -163,6 +175,8 @@ module Domino
 				"#{server}!!#{path}"
 			end
 		end
+		
+		
 		
 		def self.html_converter(options=nil)
 			if options == nil or !options.is_a? Array

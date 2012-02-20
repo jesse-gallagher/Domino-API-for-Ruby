@@ -1,5 +1,5 @@
 module Domino
-	class ViewEntryCollection
+	class ViewEntryCollection < Base
 		attr_reader :parent
 		attr_accessor :read_column_names
 		
@@ -9,6 +9,8 @@ module Domino
 		#end
 		
 		def initialize(parent, position, return_count=0xFFFFFFFF, key_matches=-1)
+			super
+			
 			@parent = parent
 			@position = position
 			@return_count = return_count

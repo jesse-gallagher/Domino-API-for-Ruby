@@ -13,7 +13,7 @@ module Domino
 		end
 =end
 		def initialize(parent, handle, noteid, originatorid, modified, note_class)
-			super(parent, handle, noteid, originatorid, modified, note_class)
+			super
 			
 			collection_handle_ptr = FFI::MemoryPointer.new(API.find_type(:HCOLLECTION))
 			result = API.NIFOpenCollection(
@@ -129,7 +129,7 @@ module Domino
 			position[:Level] = 0
 			position[:Tumbler][0] = 0
 			
-			ViewEntryCollection.new(self, position)
+			add_child ViewEntryCollection.new(self, position)
 		end
 		
 		def entries_by_key(key, exact=false)
@@ -158,14 +158,16 @@ module Domino
 			)
 			raise NotesException.new(result) if result > 0
 			
-			ViewEntryCollection.new(self, position, num_matches.read_uint32, num_matches.read_uint32)
+			add_child ViewEntryCollection.new(self, position, num_matches.read_uint32, num_matches.read_uint32)
 		end
 		
 		def close
-			close_search!
-			API.NIFCloseCollection @collection_handle
-			
-			super
+			if not self.closed?
+				super
+				close_search!
+				result = API.NIFCloseCollection @collection_handle
+				raise NotesException.new(result) if result != 0
+			end
 		end
 		
 		private

@@ -34,6 +34,7 @@ module Domino
 		
 		# utility functions
 		attach_function "TimeGMToLocal", [:pointer], :BOOL
+		attach_function "TimeLocalToGM", [:pointer], :BOOL
 
 		# server management functions
 		attach_function "NSPingServer", [:string, :pointer, :pointer], :STATUS
@@ -86,13 +87,19 @@ module Domino
 		attach_function "NSFNoteClose", [:NOTEHANDLE], :STATUS
 		attach_function "NSFDbGetMultNoteInfo", [:DBHANDLE, :WORD, :WORD, :DHANDLE, :pointer, :pointer], :STATUS
 		attach_function "NSFNoteHasMIME", [:NOTEHANDLE], :BOOL
+		attach_function "NSFNoteUpdateExtended", [:NOTEHANDLE, :DWORD], :STATUS
 		
 		# Items
 		attach_function "NSFItemInfo", [:NOTEHANDLE, :string, :WORD, :pointer, :pointer, :pointer, :pointer], :STATUS
 		callback "NSFItemScanCallback", [:WORD, :WORD, :pointer, :WORD, :pointer, :DWORD, :pointer], :STATUS
 		attach_function "NSFItemScan", [:NOTEHANDLE, "NSFItemScanCallback", :pointer], :STATUS
+		attach_function "NSFItemSetText", [:NOTEHANDLE, :string, :string, :WORD], :STATUS
+		attach_function "NSFItemSetNumber", [:NOTEHANDLE, :string, :pointer], :STATUS
+		attach_function "NSFItemSetTime", [:NOTEHANDLE, :string, :pointer], :STATUS
+		attach_function "NSFItemDelete", [:NOTEHANDLE, :string, :WORD], :STATUS
+		attach_function "NSFItemAppend", [:NOTEHANDLE, :WORD, :string, :WORD, :WORD, :pointer, :WORD], :STATUS
 		
-		# Rich text, MIME, and HTML
+		# Rich text and MIME
 		attach_function "ConvertItemToText", [BLOCKID.by_value, :DWORD, :string, :WORD, :pointer, :pointer, :BOOL], :STATUS
 		
 		attach_function "MIMEOpenDirectory", [:NOTEHANDLE, :pointer], :STATUS
@@ -107,6 +114,7 @@ module Domino
 		attach_function "MMCreateConvControls", [:CCHANDLE], :STATUS
 		attach_function "MMDestroyConvControls", [:CCHANDLE], :STATUS
 		
+		# HTML
 		attach_function "HTMLProcessInitialize", [], :STATUS
 		attach_function "HTMLProcessTerminate", [], :STATUS
 		attach_function "HTMLCreateConverter", [:pointer], :STATUS
@@ -116,6 +124,7 @@ module Domino
 		attach_function "HTMLSetHTMLOptions", [:HTMLHANDLE, :pointer], :STATUS
 		attach_function "HTMLConvertItem", [:HTMLHANDLE, :DBHANDLE, :NOTEHANDLE, :string], :STATUS
 		attach_function "HTMLConvertNote", [:HTMLHANDLE, :DBHANDLE, :NOTEHANDLE, :DWORD, :string], :STATUS
+		attach_function "HTMLConvertImage", [:HTMLHANDLE, :string], :STATUS
 		
 		# DXL
 		attach_function "DXLCreateExporter", [:pointer], :STATUS
@@ -130,6 +139,12 @@ module Domino
 		attach_function "IDInsert", [:DHANDLE, :NOTEID, :pointer], :STATUS
 		attach_function "IDDestroyTable", [:DHANDLE], :STATUS
 		
+		# Lists
+		attach_function "ListAllocate", [:WORD, :WORD, :BOOL, :pointer, :pointer, :pointer], :STATUS
+		attach_function "ListAddText", [:pointer, :BOOL, :WORD, :string, :WORD], :STATUS
+		attach_function "ListAddEntry", [:DHANDLE, :BOOL, :pointer, :WORD, :string, :WORD], :STATUS
+		attach_function "ListGetNumEntries", [:pointer, :BOOL], :WORD
+		
 		# A non-struct version that parses the info into useful parts
 		class OriginatorID
 			attr_reader :universalid, :sequence, :sequence_time
@@ -140,33 +155,6 @@ module Domino
 				@sequence = ptr.read_uint32
 				ptr += 4
 				@sequence_time = TIMEDATE.new(ptr)
-			end
-		end
-		
-		class NameInfo
-			attr_reader :num_names, :licenseid, :authenticated, :names
-			
-			def initialize(handle)
-				ptr = API.OSLockObject(handle)
-				@struct = NAMES_LIST.new(ptr)
-				
-				# read in :num_names names, which are null-terminated strings, one after the other in memory
-				# offset it by the size of the main structure, which I guess is 16
-				offset = 2 + 8 + 4 + 2
-				@names = []
-				0.upto(@struct[:num_names]-1) do |i|
-					string = ""
-					counter = 0
-					char = ptr.get_bytes(offset, 1)
-					while char != "\0" and counter < 200 do
-						string << char
-						counter = counter + 1
-						offset = offset + 1
-						char = ptr.get_bytes(offset, 1)
-					end
-					offset = offset + 1
-					@names << string
-				end
 			end
 		end
 		class TimeRange
@@ -301,14 +289,17 @@ module Domino
 			timedates = []
 			0.upto(range[:ListEntries]-1) do |i|
 				timedate_ptr = ptr + (i * TIMEDATE.size)
-				timedates << TIMEDATE.new(timedate_ptr)
+				#timedates << TIMEDATE.new(timedate_ptr)
+				timedates << TIMEDATE.new(timedate_ptr).to_t
 			end
 			ranges = []
 			0.upto(range[:RangeEntries]-1) do |i|
 				pair_ptr = ptr + (range[:ListEntries] * TIMEDATE.size) + (i * TIMEDATE_PAIR.size)
-				ranges << TIMEDATE_PAIR.new(pair_ptr)
+				#ranges << TIMEDATE_PAIR.new(pair_ptr)
+				ranges << TIMEDATE_PAIR.new(pair_ptr).to_r
 			end
-			TimeRange.new(timedates, ranges)
+			#TimeRange.new(timedates, ranges)
+			timedates + ranges
 		end
 		def self.read_truncated_collectionposition(ptr)
 			coll_ptr = ptr + 0
@@ -380,6 +371,25 @@ module Domino
 			
 			
 			table_ptr
+		end
+		
+		def self.create_text_list(arr, prefix_data_type=true)
+			handle_ptr = FFI::MemoryPointer.new(API.find_type(:DHANDLE))
+			list_ptr = FFI::MemoryPointer.new(:pointer)
+			size_ptr = FFI::MemoryPointer.new(API.find_type(:WORD))
+			result = API.ListAllocate(0, 0, prefix_data_type ? 1 : 0, handle_ptr, list_ptr, size_ptr)
+			handle = handle_ptr.read_uint32
+			
+			arr.each do |s|
+				s = s.to_s
+				entries = API.ListGetNumEntries(list_ptr, 0)
+				API.OSUnlockObject(handle)
+				
+				result = API.ListAddEntry(handle, prefix_data_type ? 1 : 0, size_ptr, entries, s, s.size)
+				list_ptr = API.OSLockObject(handle)
+			end
+			
+			handle
 		end
 	end
 end

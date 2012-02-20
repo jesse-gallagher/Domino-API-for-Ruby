@@ -28,6 +28,8 @@ module Domino
 		2055 => "The server is not responding. The server may be down or you may be experiencing network problems. Contact your system administrator if this problem persists.",
 		2232 => "Warning: unexpected MIME error: ",
 		8459 => "An attempt was made to load a program with an incorrect format.",
+		14938 => "Feature not supported in the HTML API.",
+		14941 => "HTMLAPI Problem converting to HTML",
 		15097 => "No MIME data."
 	}
 	

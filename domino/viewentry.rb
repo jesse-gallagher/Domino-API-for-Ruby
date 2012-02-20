@@ -1,5 +1,5 @@
 module Domino
-	class ViewEntry
+	class ViewEntry < Base
 		attr_reader :index, :noteid, :unid, :note_class
 		attr_reader :sibling_count, :child_count, :descendant_count, :indent_level
 		attr_reader :any_unread, :unread, :position, :ft_search_score

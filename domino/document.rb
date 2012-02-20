@@ -1,8 +1,10 @@
 module Domino
-	class Document
+	class Document < Base
 		attr_reader :handle, :parent, :noteid, :universalid, :modified, :note_class, :sequence, :sequence_time
 		
 		def initialize(parent, handle, noteid, originatorid, modified, note_class)
+			super
+			
 			@parent = parent
 			@handle = handle
 			@noteid = noteid
@@ -64,24 +66,55 @@ module Domino
 			# locking a block involves locking the pool and incrementing to the block
 			block_ptr = API.OSLockObject(blockid[:pool]) + blockid[:block]
 			if type == API::TYPE_COMPOSITE
-				result_handle_ptr = FFI::MemoryPointer.new(API.find_type(:DHANDLE))
-				result_length_ptr = FFI::MemoryPointer.new(API.find_type(:DWORD))
-				result = API.ConvertItemToText(blockid, length, "", 0xFFFF, result_handle_ptr, result_length_ptr, 0)
-				raise NotesException.new(result) if result != 0
-				
-				result_handle = result_handle_ptr.read_uint32
-				result_ptr = API.OSLockObject(result_handle)
-				value = result_ptr.get_bytes(0, result_length_ptr.read_uint32)
-				API.OSUnlockObject(result_handle)
-				API.OSMemFree(result_handle)
+				value = self.get_item_html(item_name)
 			else
 				value = API.read_item_value(block_ptr, length, @handle)
 			end
 			# unlocking a block only needs the pool ID
 			API.OSUnlockObject(blockid[:pool])
 			
+			value.is_a?(Array) ? value : [value]
+		end
+		
+		def []=(item_name, value)
+			if value.is_a? Fixnum
+				num_ptr = FFI::MemoryPointer.new(API.find_type(:NUMBER))
+				num_ptr.write_double(value)
+				result = API.NSFItemSetNumber(@handle, item_name.to_s, num_ptr)
+				raise NotesException.new(result) if result != 0
+			elsif value.is_a? Time
+				value = value.utc
+				time = API::TIME.new
+				time[:year] = value.year
+				time[:month] = value.month
+				time[:day] = value.day
+				time[:hour] = value.hour
+				time[:minute] = value.min
+				time[:second] = value.sec
+				API.TimeLocalToGM(time.to_ptr)
+				
+				# This wants a pointer to just the GM portion, so skip the pointer past the other parts
+				result = API.NSFItemSetTime(@handle, item_name.to_s, time.to_ptr + (API.find_type(:int).size * 10))
+				raise NotesException.new(result) if result != 0
+			elsif value.is_a? Date
+				time = API::TIME.new
+				time[:year] = value.year
+				time[:month] = value.month
+				time[:day] = value.day
+				time[:hour] = time[:minute] = time[:second] = -1
+				API.TimeLocalToGM(time.to_ptr)
+				
+				# This wants a pointer to just the GM portion, so skip the pointer past the other parts
+				result = API.NSFItemSetTime(@handle, item_name.to_s, time.to_ptr + (API.find_type(:int).size * 10))
+				raise NotesException.new(result) if result != 0
+			else
+				s = value.to_s.gsub("\n", "\0")
+				result = API.NSFItemSetText(@handle, item_name.to_s, s, s.size)
+				raise NotesException.new(result) if result != 0
+			end
 			value
 		end
+		
 		def each_item
 			process_item = Proc.new do |spare, flags, name, name_length, value, value_length, routine_param|
 				item_name = name.read_bytes(name_length)
@@ -90,11 +123,17 @@ module Domino
 				type = value.read_uint16
 				if type == API::TYPE_COMPOSITE
 					# Rich text is a bag of hurt, so the best way may be to export it as DXL
-					dxl = self.to_dxl
-					start = "<item name='#{item_name}'><richtext>"
-					start_index = dxl.index(start) + start.length + 1 # for the newline
-					end_index = dxl.index("</richtext>", start_index) - 1
-					yield Item.new(self, item_name, type, dxl[start_index..end_index])
+					dxl = self.get_item_dxl(item_name)
+					start = "<richtext>"
+					start_index = dxl.index(start)
+					if start_index != nil
+						start_index += + start.length + 1 # for the newline
+						end_index = dxl.index("</richtext>", start_index) - 1
+						dxl = dxl[start_index..end_index]
+					else
+						dxl = ""
+					end
+					yield Item.new(self, item_name, type, dxl)
 				else
 					value = API.read_item_value(value, value_length, @handle)
 					yield Item.new(self, item_name, type, value)
@@ -108,6 +147,24 @@ module Domino
 			Session.html_converter do |converter|
 				result = API.HTMLConvertItem(converter, @parent.handle, @handle, item_name.to_s)
 				raise NotesException.new(result) if result != 0
+			end
+		end
+		def get_item_dxl(item_name)
+			item_list = API.create_text_list([item_name], false)
+			dxl = self.to_dxl({
+				:eRestrictToItemNames => item_list,
+				:eForceNoteFormat => true
+			})
+			API.OSUnlockObject(item_list)
+			API.OSMemFree(item_list)
+			start = "<item name='#{item_name}'>"
+			start_index = dxl.index(start)
+			if start_index != nil
+				start_index += start.length
+				end_index = dxl.index("</item>", start_index) - 1
+				dxl[start_index..end_index]
+			else
+				""
 			end
 		end
 		
@@ -130,13 +187,16 @@ module Domino
 				properties.each do |key, value|
 					value_ptr = nil
 					if not value.is_a? FFI::Pointer
-						# Then it can only legally be a boolean or string
+						# Then it can only legally be a boolean, string, or handle
 						if value.is_a? TrueClass
 							value_ptr = FFI::MemoryPointer.new(API.find_type(:BOOL))
 							value_ptr.write_uint32(1)
 						elsif value.is_a? FalseClass
 							value_ptr = FFI::MemoryPointer.new(API.find_type(:BOOL))
 							value_ptr.write_uint32(0)
+						elsif value.is_a? Fixnum
+							value_ptr = FFI::MemoryPointer.new(API.find_type(:DHANDLE))
+							value_ptr.write_uint32(value)
 						else
 							value_ptr = FFI::MemoryPointer.from_string(value.to_s)
 						end
@@ -160,8 +220,24 @@ module Domino
 			dxl
 		end
 		
+		def remove_item(item_name)
+			s = item_name.to_s
+			result = API.NSFItemDelete(@handle, s, s.size)
+			raise NotesException.new(result) if result != 0
+		end
+		
+		def save(force=false)
+			result = API.NSFNoteUpdateExtended(@handle, force ? API::UPDATE_FORCE : 0)
+			raise NotesException.new(result) if result != 0
+			true
+		end
+		
 		def close
-			API::NSFNoteClose @handle
+			if not self.closed?
+				super
+				
+				API::NSFNoteClose @handle
+			end
 		end
 		
 		private

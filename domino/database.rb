@@ -3,6 +3,8 @@ module Domino
 		attr_reader :handle
 		
 		def initialize(handle)
+			super
+			
 			@handle = handle
 		end
 		
@@ -115,9 +117,9 @@ module Domino
 			raise NotesException.new(result) if result != 0
 			
 			
-			doc_class.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+			add_child doc_class.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
 		end
-		def doc_by_unid(unid)
+		def doc_by_unid(unid, doc_class=Document)
 			if not unid.is_a?(API::UNIVERSALNOTEID)
 				unid = API::UNIVERSALNOTEID.from_s(unid.to_s)
 			end
@@ -140,7 +142,7 @@ module Domino
 			result = API.NSFNoteOpenExt(@handle, noteid, API::OPEN_RAW_MIME, handle_ptr)
 			raise NotesException.new(result) if result != 0
 			
-			Domino::Document.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+			add_child doc_class.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
 		end
 		
 		def to_html(options=nil)
@@ -193,7 +195,11 @@ module Domino
 		end
 		
 		def close
-			API.NSFDbClose(@handle)
+			if not self.closed?
+				super
+				
+				API.NSFDbClose(@handle)
+			end
 		end
 		
 		private

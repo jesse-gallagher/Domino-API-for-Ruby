@@ -101,10 +101,38 @@ module Domino
 				:Check, [:BYTE, 2]
 		end
 		class NAMES_LIST < FFI::Struct
-			layout :num_names, :WORD,
-				:licenseid, :uint64,
-				:authenticated, :int32
+			layout :NumNames, :WORD,
+				:License, :uint64,
+				:Authenticated, :int32
 			# This is followed by :num_names packed strings
+			
+			def to_h
+				# read in :num_names names, which are null-terminated strings, one after the other in memory
+				# offset it by the size of the main structure, which I guess is 16
+				offset = self.size
+				names = []
+				ptr = self.to_ptr
+				0.upto(self[:NumNames]-1) do |i|
+					string = ""
+					counter = 0
+					char = ptr.get_bytes(offset, 1)
+					while char != "\0" and counter < 200 do
+						string << char
+						counter = counter + 1
+						offset = offset + 1
+						char = ptr.get_bytes(offset, 1)
+					end
+					offset = offset + 1
+					names << string
+				end
+				
+				{
+					:num_names => self[:NumNames],
+					:license => self[:License],
+					:authenticated => self[:Authenticated] == 1,
+					:names => names
+				}
+			end
 		end
 		class LIST < FFI::Struct
 			layout :ListEntries, :USHORT
