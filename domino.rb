@@ -22,6 +22,7 @@ module Domino
 		582 => "You are not authorized to perform that operation",
 		781 => "You are not authorized to access the view",
 		813 => "Collation number specified negative or greater than number of collations in view.",
+		947 => "Attempt to perform folder operation on non-folder note.",
 		1028 => "Entry not found in index",
 		1387 => "Internal error:  Corrupted formula instance detected",
 		1543 => "Encountered zero length record.",

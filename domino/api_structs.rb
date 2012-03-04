@@ -278,6 +278,20 @@ module Domino
 				:CutoffInterval, :WORD,
 				:Cutoff, TIMEDATE
 		end
+		class COLLATION < FFI::Struct
+			layout :BufferSize, :USHORT,
+				:Items, :USHORT,
+				:Flags, :BYTE,
+				:signature, :BYTE
+		end
+		class COLLATE_DESCRIPTOR < FFI::Struct
+			layout :Flags, :BYTE,
+				:signature, :BYTE,
+				:keytype, :BYTE,
+				:NameOffset, :WORD,
+				:NameLength, :WORD
+			attr_accessor :name
+		end
 		
 		enum :HTMLAPI_PROP_TYPE, [
 			:HTMLAPI_PROP_TEXTLENGTH, 0,

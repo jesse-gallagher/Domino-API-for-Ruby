@@ -124,6 +124,26 @@ module Domino
 			num_docs.read_uint32
 		end
 		
+		def documents
+			hTable_ptr = FFI::MemoryPointer.new(API.find_type(:DHANDLE))
+			result = API.IDCreateTable(0, hTable_ptr)
+			raise NotesException.new(result) if result != 0
+			hTable = hTable_ptr.read_uint32
+			
+			# Walk the view to get the IDs
+			position = API::COLLECTIONPOSITION.new
+			position[:Level] = 0
+			position[:Tumbler][0] = 0
+			
+			entries = ViewEntryCollection.new(self, position, 0xFFFFFFFF, -1, API::READ_MASK_NOTEID)
+			entries.each do |entry|
+				result = API.IDInsert(hTable, entry.noteid, nil)
+				raise NotesException.new(result) if result != 0
+			end
+			
+			add_child DocumentCollection.new(@self, hTable)
+		end
+		
 		def entries
 			position = API::COLLECTIONPOSITION.new
 			position[:Level] = 0

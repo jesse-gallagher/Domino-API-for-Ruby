@@ -4,8 +4,8 @@ require "#{File.dirname(__FILE__)}/api_structs"
 module Domino
 	module API
 		extend FFI::Library
-		#ffi_lib "libnotes"
-		ffi_lib "/opt/ibm/lotus/notes/85030/linux/libnotes.so"
+		ffi_lib "libnotes"
+		#ffi_lib "/opt/ibm/lotus/notes/85030/linux/libnotes.so"
 		
 		# general and memory functions
 		attach_function "OSLockObject", [:DHANDLE], :pointer
@@ -72,6 +72,13 @@ module Domino
 		attach_function "NIFGetCollectionData", [:HCOLLECTION, :pointer], :STATUS
 		attach_function "NIFUpdateCollection", [:HCOLLECTION], :STATUS
 		attach_function "NIFFindByKey", [:HCOLLECTION, :pointer, :WORD, :pointer, :pointer], :STATUS
+		attach_function "NSFFolderGetIDTable", [:DHANDLE, :DHANDLE, :NOTEID, :DWORD, :pointer], :STATUS
+		
+		# ID Table (DocumentCollection) functions
+		attach_function "IDCreateTable", [:DWORD, :pointer], :STATUS
+		attach_function "IDDestroyTable", [:DHANDLE], :STATUS
+		attach_function "IDEntries", [:DHANDLE], :DWORD
+		attach_function "IDInsert", [:DHANDLE, :DWORD, :pointer], :STATUS
 		
 		# FT Search functions
 		attach_function "FTSearch", [:DBHANDLE, :pointer, :HCOLLECTION, :string, :DWORD, :WORD, :DHANDLE, :pointer, :pointer, :pointer], :STATUS
@@ -235,10 +242,43 @@ module Domino
 				return API.read_ref_list(ptr+2)
 			when API::TYPE_MIME_PART
 				return MimePart.new(ptr, notehandle)
+			when API::TYPE_COLLATION
+				return API.read_collation(ptr+2)
 			else
-				puts "Couldn't read item type #{item_type}"
-				return nil
+				#puts "Couldn't read item type #{item_type}"
+				#return nil
+				return UnknownItem.new(item_type, ptr.get_bytes(2, size-2))
 			end
+		end
+		
+		class UnknownItem
+			attr_reader :type, :value
+			def initialize(type, value)
+				@type = type
+				@value = value
+			end
+		end
+		
+		def self.read_collation(ptr)
+			collation = COLLATION.new(ptr)
+			
+			# We can figure out the positions of the descriptors and text area now
+			desc_ptr = ptr + COLLATION.size
+			text_ptr = desc_ptr + (COLLATE_DESCRIPTOR.size * collation[:Items])
+			
+			# Read in each COLLATE_DESCRIPTOR object and its associated name
+			descriptors = []
+			collation[:Items].times do
+				desc = COLLATE_DESCRIPTOR.new(desc_ptr)
+				desc.name = text_ptr.get_bytes(desc[:NameOffset], desc[:NameLength])
+				#puts desc.name
+				puts "Offset: #{desc[:NameOffset]}"
+				puts "Size: #{desc[:NameLength]}"
+				desc_ptr += COLLATE_DESCRIPTOR.size
+				
+				descriptors << desc
+			end
+			
 		end
 		def self.read_text_list(ptr)
 			# Read the LIST struct first, which just contains the entry count

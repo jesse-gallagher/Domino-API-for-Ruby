@@ -8,13 +8,14 @@ module Domino
 		#	@entries = entries
 		#end
 		
-		def initialize(parent, position, return_count=0xFFFFFFFF, key_matches=-1)
+		def initialize(parent, position, return_count=0xFFFFFFFF, key_matches=-1, read_mask=nil)
 			super
 			
 			@parent = parent
 			@position = position
 			@return_count = return_count
 			@key_matches = key_matches
+			@read_mask = read_mask == nil ? default_read_mask : read_mask
 			
 			@read_column_names = false
 		end
@@ -38,7 +39,7 @@ module Domino
 					@position[:Tumbler][0] == 0 ? 1 : 0,
 					@parent.ft_searched? ? API::NAVIGATE_NEXT_HIT : API::NAVIGATE_NEXT,
 					@return_count,
-					read_mask,
+					@read_mask,
 					hBuffer,
 					nil,
 					nil,
@@ -62,7 +63,7 @@ module Domino
 					#entry.index = notes_found
 					#entry = ViewEntry.read(self, notes_found, info_ptr, read_mask)
 					entry = ViewEntry.new
-					info_ptr = entry.read self, notes_found, info_ptr, read_mask
+					info_ptr = entry.read self, notes_found, info_ptr, @read_mask
 					
 					#entries_list << entry.freeze
 					yield entry
@@ -74,7 +75,7 @@ module Domino
 		end
 		
 		private
-		def read_mask
+		def default_read_mask
 			API::READ_MASK_COLLECTIONSTATS +
 				API::READ_MASK_NOTEID + API::READ_MASK_NOTEUNID + API::READ_MASK_NOTECLASS +
 				API::READ_MASK_INDEXSIBLINGS + API::READ_MASK_INDEXCHILDREN + API::READ_MASK_INDEXDESCENDANTS +
