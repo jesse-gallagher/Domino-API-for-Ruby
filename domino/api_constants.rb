@@ -421,5 +421,8 @@ module Domino
 		DFLAGPAT_NO_FILERES_DIRS = "-/"
 		DFLAGPAT_FIRSTPATTERNCHAR = "(+-*"
 		DFLAGPAT_WEBHYBRIDDB = "+%"
+		
+		# Item flags
+		ITEM_SUMMARY = 0x0004
 	end
 end

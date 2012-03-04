@@ -88,6 +88,7 @@ module Domino
 		
 		# Note/document functions
 		attach_function "NSFNoteGetInfo", [:NOTEHANDLE, :WORD, :pointer], :void
+		attach_function "NSFNoteSetInfo", [:NOTEHANDLE, :WORD, :pointer], :void
 		attach_function "NSFNoteOpenExt", [:DBHANDLE, :NOTEID, :DWORD, :pointer], :STATUS
 		attach_function "NSFDbGetNoteInfo", [:DBHANDLE, :NOTEID, :pointer, :pointer, :pointer], :STATUS
 		attach_function "NSFDbGetNoteInfoByUNID", [:DBHANDLE, :pointer, :pointer, :pointer, :pointer, :pointer], :STATUS
@@ -95,6 +96,7 @@ module Domino
 		attach_function "NSFDbGetMultNoteInfo", [:DBHANDLE, :WORD, :WORD, :DHANDLE, :pointer, :pointer], :STATUS
 		attach_function "NSFNoteHasMIME", [:NOTEHANDLE], :BOOL
 		attach_function "NSFNoteUpdateExtended", [:NOTEHANDLE, :DWORD], :STATUS
+		attach_function "NSFNoteCreate", [:DBHANDLE, :pointer], :STATUS
 		
 		# Items
 		attach_function "NSFItemInfo", [:NOTEHANDLE, :string, :WORD, :pointer, :pointer, :pointer, :pointer], :STATUS
@@ -105,6 +107,7 @@ module Domino
 		attach_function "NSFItemSetTime", [:NOTEHANDLE, :string, :pointer], :STATUS
 		attach_function "NSFItemDelete", [:NOTEHANDLE, :string, :WORD], :STATUS
 		attach_function "NSFItemAppend", [:NOTEHANDLE, :WORD, :string, :WORD, :WORD, :pointer, :WORD], :STATUS
+		attach_function "NSFItemAppendTextList", [:NOTEHANDLE, :string, :string, :WORD, :BOOL], :STATUS
 		
 		# Rich text and MIME
 		attach_function "ConvertItemToText", [BLOCKID.by_value, :DWORD, :string, :WORD, :pointer, :pointer, :BOOL], :STATUS

@@ -117,7 +117,8 @@ module Domino
 			raise NotesException.new(result) if result != 0
 			
 			
-			add_child doc_class.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+			#add_child doc_class.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+			add_child doc_class.new(self, handle_ptr.read_uint32)
 		end
 		def doc_by_unid(unid, doc_class=Document)
 			if not unid.is_a?(API::UNIVERSALNOTEID)
@@ -142,7 +143,23 @@ module Domino
 			result = API.NSFNoteOpenExt(@handle, noteid, API::OPEN_RAW_MIME, handle_ptr)
 			raise NotesException.new(result) if result != 0
 			
-			add_child doc_class.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+			#add_child doc_class.new(self, handle_ptr.read_uint32, noteid, originatorid, modified, note_class)
+			add_child doc_class.new(self, handle_ptr.read_uint32)
+		end
+		
+		def create_document(note_class=API::NOTE_CLASS_DOCUMENT)
+			note_handle_ptr = FFI::MemoryPointer.new(API.find_type(:NOTEHANDLE))
+			result = API.NSFNoteCreate(@handle, note_handle_ptr)
+			raise NotesException.new(result) if result != 0
+			note_handle = note_handle_ptr.read_uint32
+			
+			# Set the note's class
+			note_class_ptr = FFI::MemoryPointer.new(API.find_type(:WORD))
+			note_class_ptr.write_uint16(note_class)
+			API.NSFNoteSetInfo note_handle, API::F_NOTE_CLASS, note_class_ptr
+			
+			#add_child Document.new(self, note_handle, noteid, originatorid, modified, note_class)
+			add_child Document.new(self, note_handle)
 		end
 		
 		def to_html(options=nil)

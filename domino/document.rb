@@ -2,17 +2,20 @@ module Domino
 	class Document < Base
 		attr_reader :handle, :parent, :noteid, :universalid, :modified, :note_class, :sequence, :sequence_time
 		
-		def initialize(parent, handle, noteid, originatorid, modified, note_class)
+		#def initialize(parent, handle, noteid, originatorid, modified, note_class)
+		def initialize(parent, handle)
 			super
 			
 			@parent = parent
 			@handle = handle
-			@noteid = noteid
-			@universalid = originatorid.universalid
-			@modified = modified.to_t
-			@note_class = note_class
-			@sequence = originatorid.sequence
-			@sequence_time = originatorid.sequence_time.to_t
+			#@noteid = noteid
+			#@universalid = originatorid.universalid
+			#@modified = modified.to_t
+			#@note_class = note_class
+			#@sequence = originatorid.sequence
+			#@sequence_time = originatorid.sequence_time.to_t
+			
+			update_note_info!
 		end
 		
 		# TODO: make this work
@@ -107,6 +110,32 @@ module Domino
 				# This wants a pointer to just the GM portion, so skip the pointer past the other parts
 				result = API.NSFItemSetTime(@handle, item_name.to_s, time.to_ptr + (API.find_type(:int).size * 10))
 				raise NotesException.new(result) if result != 0
+			elsif value.is_a? Array and value[0].is_a? Fixnum
+				remove_item item_name
+				
+				# Then assume it's an array of numbers. If it's not, may god have mercy on us all
+				size = API::RANGE.size + value.length * API.find_type(:NUMBER).size
+				entire_range = FFI::MemoryPointer.new(size)
+				range = API::RANGE.new(entire_range)
+				range[:ListEntries] = value.length
+				range[:RangeEntries] = 0
+				
+				append_ptr = entire_range + API::RANGE.size
+				value.each do |val|
+					append_ptr.write_double(val)
+					append_ptr += API.find_type(:NUMBER).size
+				end
+				
+				result = API.NSFItemAppend(@handle, API::ITEM_SUMMARY, item_name.to_s, item_name.to_s.size, API::TYPE_NUMBER_RANGE, entire_range, size)
+				raise NotesException.new(result) if result != 0
+			elsif value.is_a? Array
+				remove_item item_name
+				
+				value.each do |entry|
+					val = entry.to_s
+					result = API.NSFItemAppendTextList(@handle, item_name.to_s, val, val.size, 1)
+					raise NotesException.new(result) if result != 0
+				end
 			else
 				s = value.to_s.gsub("\n", "\0")
 				result = API.NSFItemSetText(@handle, item_name.to_s, s, s.size)
@@ -222,13 +251,18 @@ module Domino
 		
 		def remove_item(item_name)
 			s = item_name.to_s
-			result = API.NSFItemDelete(@handle, s, s.size)
-			raise NotesException.new(result) if result != 0
+			if has_item? item_name
+				result = API.NSFItemDelete(@handle, s, s.size)
+				raise NotesException.new(result) if result != 0
+			end
 		end
 		
 		def save(force=false)
 			result = API.NSFNoteUpdateExtended(@handle, force ? API::UPDATE_FORCE : 0)
 			raise NotesException.new(result) if result != 0
+			
+			update_note_info!
+			
 			true
 		end
 		
@@ -299,6 +333,28 @@ module Domino
 					return Database.new(dbhandle.read_uint32)
 				end
 			end
+		end
+		
+		def update_note_info!
+			# Gather the generated info
+			noteid_ptr = FFI::MemoryPointer.new(API.find_type(:NOTEID))
+			API.NSFNoteGetInfo @handle, API::F_NOTE_ID, noteid_ptr
+			@noteid = noteid_ptr.read_uint32
+			
+			oid = API::ORIGINATORID.new
+			API.NSFNoteGetInfo @handle, API::F_NOTE_OID, oid.to_ptr
+			originatorid = API::OriginatorID.new(oid.to_ptr)
+			@universalid = originatorid.universalid
+			@sequence = originatorid.sequence
+			@sequence_time = originatorid.sequence_time.to_t
+			
+			modified = API::TIMEDATE.new
+			API.NSFNoteGetInfo @handle, API::F_NOTE_MODIFIED, modified.to_ptr
+			@modified = modified.to_t
+			
+			note_class_ptr = FFI::MemoryPointer.new(API.find_type(:WORD))
+			API.NSFNoteGetInfo @handle, API::F_NOTE_CLASS, note_class_ptr
+			@note_class = note_class_ptr.read_uint16
 		end
 	end
 end
