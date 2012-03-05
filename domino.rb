@@ -52,23 +52,23 @@ module Domino
 			return API.error_string(@error_code)
 			
 			
-			
 =begin
 			#puts @error_code
 			begin
 				#ruby_buffer = FFI::MemoryPointer.new(256).write_string("\0" * 256)
-				buffer = LibC.malloc 256
-				buffer.write_array_of_type(:uint8, :write_uint8, [0] * 256)
-				size = API.OSLoadString(API::NULLHANDLE, 3847, buffer, 255)
-				#buff = FFI::MemoryPointer.from_string(" " * 256)
-				#size = API.OSLoadString(API::NULLHANDLE, @error_code, buff.read_pointer, 255)
-				mess = buffer.read_bytes(size)
-				LibC.free buffer
-				puts "Excep: #{mess}"
+				#buffer = LibC.malloc 256
+				#buffer.write_array_of_type(:uint8, :write_uint8, [0] * 256)
+				#size = API.OSLoadString(API::NULLHANDLE, 3847, buffer, 255)
+				buff = FFI::MemoryPointer.new(256)
+				size = API.OSLoadString(API::NULLHANDLE, @error_code, buff, 255)
+				#mess = buffer.read_bytes(size)
+				#LibC.free buffer
+				#puts "Excep: #{mess}"
+				puts buff.get_bytes(20)
 			rescue Exception => e
 				puts "Couldn't read message: #{e}"
 			end
-			API.error_string(@error_code)
+			#API.error_string(@error_code)
 =end
 		end
 	end

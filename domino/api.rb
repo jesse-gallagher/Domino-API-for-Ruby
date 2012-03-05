@@ -318,7 +318,8 @@ module Domino
 		end
 		
 		def self.read_time(ptr)
-			self.timedate_to_time(TIMEDATE.new(ptr))
+			#self.timedate_to_time(TIMEDATE.new(ptr))
+			TIME.from_timedate(TIMEDATE.new(ptr))
 		end
 		def self.timedate_to_time(timedate)
 			time = TIME.new

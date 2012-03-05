@@ -89,17 +89,11 @@ module Domino
 				raise NotesException.new(result) if result != 0
 			elsif value.is_a? Time
 				value = value.utc
-				time = API::TIME.new
-				time[:year] = value.year
-				time[:month] = value.month
-				time[:day] = value.day
-				time[:hour] = value.hour
-				time[:minute] = value.min
-				time[:second] = value.sec
-				API.TimeLocalToGM(time.to_ptr)
+				time = API::TIMEDATE.from_t(value)
 				
 				# This wants a pointer to just the GM portion, so skip the pointer past the other parts
-				result = API.NSFItemSetTime(@handle, item_name.to_s, time.to_ptr + (API.find_type(:int).size * 10))
+				#result = API.NSFItemSetTime(@handle, item_name.to_s, time.to_ptr + (API.find_type(:int).size * 10))
+				result = API.NSFItemSetTime(@handle, item_name.to_s, time)
 				raise NotesException.new(result) if result != 0
 			elsif value.is_a? Date
 				time = API::TIME.new
@@ -112,13 +106,28 @@ module Domino
 				# This wants a pointer to just the GM portion, so skip the pointer past the other parts
 				result = API.NSFItemSetTime(@handle, item_name.to_s, time.to_ptr + (API.find_type(:int).size * 10))
 				raise NotesException.new(result) if result != 0
-			elsif value.is_a? Array and value[0].is_a? Fixnum
+			elsif value.is_a? API::UNIVERSALNOTEID
+				remove_item item_name
+				
+				# UNIDs are always stored as lists
+				list = API::LIST.from_unid_array([value])
+				result = API.NSFItemAppend(@handle, 0, item_name.to_s, item_name.to_s.size, API::TYPE_NOTEREF_LIST, list, list.total_size)
+				raise NotesException.new(result) if result != 0
+			elsif value.is_a? Array and value.length > 0 and value[0].is_a? Fixnum
 				remove_item item_name
 				
 				# Then assume it's an array of numbers. If it's not, may god have mercy on us all
 				range = API::RANGE.from_number_array(value)
 				
 				result = API.NSFItemAppend(@handle, API::ITEM_SUMMARY, item_name.to_s, item_name.to_s.size, API::TYPE_NUMBER_RANGE, range, range.total_size)
+				raise NotesException.new(result) if result != 0
+			elsif value.is_a? Array and value.length > 0 and value[0].is_a? API::UNIVERSALNOTEID
+				remove_item item_name
+				
+				# It'd better be all UNIDs
+				list = API::LIST.from_unid_array(value)
+				
+				result = API.NSFItemAppend(@handle, 0, item_name.to_s, item_name.to_s.size, API::TYPE_NOTEREF_LIST, list, list.total_size)
 				raise NotesException.new(result) if result != 0
 			elsif value.is_a? Array
 				remove_item item_name

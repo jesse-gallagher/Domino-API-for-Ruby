@@ -135,8 +135,31 @@ module Domino
 			end
 		end
 		class LIST < FFI::Struct
+			attr_accessor :type
+			
 			layout :ListEntries, :USHORT
 			# This is followed by the list entries
+			
+			def self.from_unid_array(unids)
+				total_size = LIST.size + unids.length * API::UNIVERSALNOTEID.size
+				entire_list = FFI::MemoryPointer.new(total_size)
+				list = LIST.new(entire_list)
+				list.type = :ref
+				list[:ListEntries] = unids.length
+				
+				append_ptr = entire_list + LIST.size
+				unids.each do |unid|
+					append_ptr.write_uint64 unid[:File]
+					append_ptr += 8
+					append_ptr.write_uint64 unid[:Note]
+					append_ptr += 8
+				end
+				
+				list
+			end
+			def total_size
+				size + self[:ListEntries] * API::UNIVERSALNOTEID.size
+			end
 		end
 		class RANGE < FFI::Struct
 			attr_accessor :type
@@ -146,6 +169,7 @@ module Domino
 			
 			
 			def self.from_number_array(nums)
+				
 				total_size = RANGE.size + nums.length * API.find_type(:NUMBER).size
 				entire_range = FFI::MemoryPointer.new(total_size)
 				range = RANGE.new(entire_range)
@@ -168,6 +192,11 @@ module Domino
 		class TIMEDATE < FFI::Struct
 			# This isn't meant to be used by humans, hence the super-useful field name
 			layout :Innards, [:DWORD, 2]
+			
+			def self.from_t(t)
+				time = TIME.from_t(t)
+				TIMEDATE.new(time.to_ptr + API.find_type(:int).size * 10)
+			end
 			
 			def to_time
 				API.timedate_to_time(self)
@@ -207,6 +236,25 @@ module Domino
 				:dst, :int,
 				:zone, :int,
 				:GM, :uint64
+
+			def self.from_timedate(timedate)
+				time = TIME.new
+				time[:GM] = timedate.to_ptr.read_uint64
+				API.TimeGMToLocal(time.to_ptr)
+				time
+			end
+			def self.from_t(t)
+				time = TIME.new
+				time[:year] = t.year
+				time[:month] = t.month
+				time[:day] = t.day
+				time[:hour] = t.hour
+				time[:minute] = t.min
+				time[:second] = t.sec
+				API.TimeLocalToGM(time.to_ptr)
+				time
+			end
+
 			# GM is actually a TIMEDATE structure
 			def to_t
 				if self[:hour] == -1

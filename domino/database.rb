@@ -172,9 +172,10 @@ module Domino
 		def to_dxl(properties=nil)
 			dxl = ""
 			
-			hDXLExport = FFI::MemoryPointer.new(API.find_type(:DXLEXPORTHANDLE))
-			result = API.DXLCreateExporter(hDXLExport)
+			hDXLExport_ptr = FFI::MemoryPointer.new(API.find_type(:DXLEXPORTHANDLE))
+			result = API.DXLCreateExporter(hDXLExport_ptr)
 			raise NotesException.new(result) if result != 0
+			hDXLExport = hDXLExport_ptr.read_uint32
 			
 			# Set any options
 			if properties != nil and properties.is_a? Hash
@@ -195,7 +196,7 @@ module Domino
 						value_ptr = value
 					end
 					
-					result = API.DXLSetExporterProperty(hDXLExport.read_uint32, key, value_ptr)
+					result = API.DXLSetExporterProperty(hDXLExport, key, value_ptr)
 				end
 			end
 			
@@ -203,10 +204,10 @@ module Domino
 				dxl += pBuffer.read_string(length)
 			end
 			
-			result = API.DXLExportDatabase(hDXLExport.read_uint32, process_xml_block, @handle, nil)
+			result = API.DXLExportDatabase(hDXLExport, process_xml_block, @handle, nil)
 			raise NotesException.new(result) if result != 0
 			
-			API.DXLDeleteExporter(hDXLExport.read_uint32)
+			API.DXLDeleteExporter(hDXLExport)
 			
 			dxl
 		end
