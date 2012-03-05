@@ -12,7 +12,7 @@ module Domino
 			@ft_searched = false
 		end
 =end
-		def initialize(parent, handle, noteid, originatorid, modified, note_class)
+		def initialize(parent, handle)
 			super
 			
 			collection_handle_ptr = FFI::MemoryPointer.new(API.find_type(:HCOLLECTION))

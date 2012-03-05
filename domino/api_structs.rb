@@ -139,8 +139,31 @@ module Domino
 			# This is followed by the list entries
 		end
 		class RANGE < FFI::Struct
+			attr_accessor :type
+			
 			layout :ListEntries, :USHORT,
 				:RangeEntries, :USHORT
+			
+			
+			def self.from_number_array(nums)
+				total_size = RANGE.size + nums.length * API.find_type(:NUMBER).size
+				entire_range = FFI::MemoryPointer.new(total_size)
+				range = RANGE.new(entire_range)
+				range.type = :number
+				range[:ListEntries] = nums.length
+				range[:RangeEntries] = 0
+				
+				append_ptr = entire_range + RANGE.size
+				nums.each do |val|
+					append_ptr.write_double(val)
+					append_ptr += API.find_type(:NUMBER).size
+				end
+				
+				range
+			end
+			def total_size
+				size + self[:ListEntries] * API.find_type(:NUMBER).size
+			end
 		end
 		class TIMEDATE < FFI::Struct
 			# This isn't meant to be used by humans, hence the super-useful field name

@@ -80,6 +80,8 @@ module Domino
 		end
 		
 		def []=(item_name, value)
+			
+			
 			if value.is_a? Fixnum
 				num_ptr = FFI::MemoryPointer.new(API.find_type(:NUMBER))
 				num_ptr.write_double(value)
@@ -114,19 +116,9 @@ module Domino
 				remove_item item_name
 				
 				# Then assume it's an array of numbers. If it's not, may god have mercy on us all
-				size = API::RANGE.size + value.length * API.find_type(:NUMBER).size
-				entire_range = FFI::MemoryPointer.new(size)
-				range = API::RANGE.new(entire_range)
-				range[:ListEntries] = value.length
-				range[:RangeEntries] = 0
+				range = API::RANGE.from_number_array(value)
 				
-				append_ptr = entire_range + API::RANGE.size
-				value.each do |val|
-					append_ptr.write_double(val)
-					append_ptr += API.find_type(:NUMBER).size
-				end
-				
-				result = API.NSFItemAppend(@handle, API::ITEM_SUMMARY, item_name.to_s, item_name.to_s.size, API::TYPE_NUMBER_RANGE, entire_range, size)
+				result = API.NSFItemAppend(@handle, API::ITEM_SUMMARY, item_name.to_s, item_name.to_s.size, API::TYPE_NUMBER_RANGE, range, range.total_size)
 				raise NotesException.new(result) if result != 0
 			elsif value.is_a? Array
 				remove_item item_name
